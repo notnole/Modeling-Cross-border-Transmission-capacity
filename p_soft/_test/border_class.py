@@ -41,7 +41,7 @@ class DataBorderClass:
         self.data['date'] = _data.index.to_frame()
         for (_border, _border_type) in zip(self.border, self.border_type):
             self.data[_border] = _data.loc[:, self.dictionary_borders([_border])]
-            if _border_type is 'implicit':
+            if _border_type == 'implicit':
                 df_value = (self.data[_border].iloc[:, 1] -
                             self.data[_border].iloc[:, 0])
                 df_value[df_value < 0] = 0

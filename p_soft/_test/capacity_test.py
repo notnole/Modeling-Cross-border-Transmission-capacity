@@ -9,6 +9,8 @@ Created on Sat Mar 23 19:39:32 2019
 import datetime as dt
 import numpy as np
 import pandas as pd
+import matplotlib
+matplotlib.use('Agg')  # non-blocking: build figures without opening a window
 
 import capacity_class as capa
 import border_class as bc
@@ -16,17 +18,20 @@ from delivery_class import Delivery
 from loader import calc_prods
 
 
-border = ['de_hu', 'hu_de']
-# border = ['de_be', 'be_de', 'be_nl', 'nl_be', 'nl_de', 'de_nl', 'be_fr', 'fr_be']
+# at_be = Austria->Belgium capacity, be_at = the reverse. Both codes exist as
+# columns in Data/spot.csv. (de_hu does not: the data has de_lu, and an
+# underscore can't appear in a border endpoint anyway.) at/be have a volatile
+# spread (std ~18 EUR/MWh in 2018), so the fit finds a real sigma rather than 0.
+border = ['at_be', 'be_at']
 border_type =['implicit'] * len(border)
-# Historical data
-start_date = dt.datetime(2023,1,1)
-end_date = dt.datetime(2023,12,31) - dt.timedelta(hours=1)
+# Historical data — the repo's spot.csv only covers 2016-01..2019-05.
+start_date = dt.datetime(2018,1,1)
+end_date = dt.datetime(2018,12,31) - dt.timedelta(hours=1)
 
-# Contract specifics
-b_t = dt.datetime(2024,2,1)
-e_t = dt.datetime(2024,3,1) - dt.timedelta(hours=1)
-date_range = pd.date_range(b_t, e_t, freq='H')
+# Contract specifics (only used to compute peak/base/offpeak hour ratios)
+b_t = dt.datetime(2019,2,1)
+e_t = dt.datetime(2019,3,1) - dt.timedelta(hours=1)
+date_range = pd.date_range(b_t, e_t, freq='h')
 
 bs_class = bc.DataBorderClass(border, border_type, start_date, end_date)
 bs_class.load_data()
@@ -36,17 +41,11 @@ data = dict()
 for del_ in delivery_:
     data[del_] = bs_class.aggregate_data('M', delivery=del_)
 
-fwd_price_dict = {'de': {'base': 97},
-                  'fr': {'base': 90.25 - 1.5, 'peak': 137 + 1.46},
-                  'at': {'base': 90.25 + 7},
-                  'be': {'base': 90.25 + 1.5},
-                  'nl': {'base': 90.25 + 1.5},
-                  'cz': {'base': 127.5-4.75},
-                  'hu': {'base': 97 + 7},
-                  'si': {'base': 127.5+1.54},
-                  'sk': {'base': 130.74-2.75},
-                  'dke': {'base': 93},
-                  'dkw': {'base': 87}}
+# Hypothetical forward prices for the contract month (EUR/MWh). Set EQUAL on
+# purpose: with no forward spread, any capacity value is pure option premium
+# (the volatility value of max(S2 - S1, 0)), which is the whole point.
+fwd_price_dict = {'at': {'base': 50.0},
+                  'be': {'base': 50.0}}
 
 fwd_price_dict = calc_prods(fwd_price_dict, date_range)
 

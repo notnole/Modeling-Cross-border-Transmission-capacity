@@ -6,15 +6,22 @@ Created on Thu Mar  7 21:31:14 2019
 @author: marek
 """
 
+import os
 import pandas as pd
 import numpy as np
 from Utilities.delivery_class import Delivery
 #from Database.DB_reader import Database
 
 
+# Repo's real spot data: <repo_root>/Data/spot.csv, resolved relative to this
+# file so it works regardless of the current working directory.
+_DEFAULT_SPOT = os.path.join(os.path.dirname(__file__), '..', '..',
+                             'Data', 'spot.csv')
+
+
 def spot_loader(country_list=None, bT=None, eT=None, path=None):
     if path is None:
-        path = 'C:\Data\spot_price.csv'
+        path = _DEFAULT_SPOT
 
     df = pd.read_csv(path)
     df['date'] = pd.to_datetime(df['date'], format='%Y %m %d %H', utc=False)
