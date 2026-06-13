@@ -14,8 +14,8 @@ from scipy.optimize import curve_fit
 import matplotlib.pyplot as plt
 from mpl_toolkits import mplot3d
 
-import Loaders.loader as ld
-from Utilities.delivery_class import Delivery
+from spot_model import loader as ld
+from spot_model.delivery_class import Delivery
 
 
 tol = 1e-10

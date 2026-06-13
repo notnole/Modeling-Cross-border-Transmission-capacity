@@ -2,3 +2,11 @@ __pycache__/
 *.pyc
 .idea/
 .vscode/
+
+# OS / archive cruft (previously committed by mistake)
+.DS_Store
+*.zip
+
+# Generated price cache (see examples/backtest_test.py)
+data/.cache/
+*.pkl

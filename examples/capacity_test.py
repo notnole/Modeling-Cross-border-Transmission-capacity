@@ -6,27 +6,44 @@ Created on Sat Mar 23 19:39:32 2019
 @author: marek
 """
 
+import os
+import sys
 import datetime as dt
 import numpy as np
 import pandas as pd
 import matplotlib
 matplotlib.use('Agg')  # non-blocking: build figures without opening a window
 
-import capacity_class as capa
-import border_class as bc
-from delivery_class import Delivery
-from loader import calc_prods
+# Make the spot_model package importable when run as `python examples/...`.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from spot_model import capacity_class as capa
+from spot_model import border_class as bc
+from spot_model.delivery_class import Delivery
+from spot_model.loader import calc_prods
+
+
+# Where historical DA prices come from:
+#   'csv'    -> the static Data/spot.csv (2016-01..2019-05)
+#   'entsoe' -> pulled live from the ENTSO-E Transparency Platform via the
+#               plumbing client, so any zone/period ENTSO-E publishes works.
+SOURCE = 'entsoe'
 
 # at_be = Austria->Belgium capacity, be_at = the reverse. Both codes exist as
 # columns in Data/spot.csv. (de_hu does not: the data has de_lu, and an
 # underscore can't appear in a border endpoint anyway.) at/be have a volatile
-# spread (std ~18 EUR/MWh in 2018), so the fit finds a real sigma rather than 0.
+# spread, so the fit finds a real sigma rather than 0.
 border = ['at_be', 'be_at']
 border_type =['implicit'] * len(border)
-# Historical data — the repo's spot.csv only covers 2016-01..2019-05.
-start_date = dt.datetime(2018,1,1)
-end_date = dt.datetime(2018,12,31) - dt.timedelta(hours=1)
+# Historical fit window. The csv only covers 2016-01..2019-05. For ENTSO-E,
+# AT only became a standalone bidding zone on 2018-10-01 (it was part of
+# DE_AT_LU before), so the at/be fit must use a post-split window.
+if SOURCE == 'entsoe':
+    start_date = dt.datetime(2019,1,1)
+    end_date = dt.datetime(2019,12,31) - dt.timedelta(hours=1)
+else:
+    start_date = dt.datetime(2018,1,1)
+    end_date = dt.datetime(2018,12,31) - dt.timedelta(hours=1)
 
 # Contract specifics (only used to compute peak/base/offpeak hour ratios)
 b_t = dt.datetime(2019,2,1)
@@ -34,7 +51,7 @@ e_t = dt.datetime(2019,3,1) - dt.timedelta(hours=1)
 date_range = pd.date_range(b_t, e_t, freq='h')
 
 bs_class = bc.DataBorderClass(border, border_type, start_date, end_date)
-bs_class.load_data()
+bs_class.load_data(source=SOURCE)
 
 delivery_ = ['base']
 data = dict()

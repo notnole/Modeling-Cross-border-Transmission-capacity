@@ -1,0 +1,9 @@
+pandas
+numpy
+scipy
+matplotlib
+
+# Live DA-price pulls (source='entsoe') additionally require the external
+# ClaudeWorkspace `plumbing` package and its `entsoe-py` dependency. These are
+# NOT installed via this file — see CLAUDE.md. The CSV / JAO-export paths work
+# with the four packages above alone.

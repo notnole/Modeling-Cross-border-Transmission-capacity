@@ -9,8 +9,8 @@ Created on Thu Mar  7 20:28:16 2019
 import pandas as pd
 import numpy as np
 import datetime as dt
-import Loaders.loader as ld
-import Utilities.delivery_class as dl
+from spot_model import loader as ld
+from spot_model import delivery_class as dl
 
 
 class DataBorderClass:
@@ -33,11 +33,19 @@ class DataBorderClass:
 
         self._state = 0
 
-    def load_data(self, path_spot=None, path_auc=None):
+    def load_data(self, path_spot=None, path_auc=None, source='csv'):
         country = self.dictionary_borders()
-        _data = ld.spot_loader(country_list=country,
-                               bT=self.start_date,
-                               eT=self.end_date)
+        if source == 'entsoe':
+            # Pull DA prices live from the ENTSO-E Transparency Platform via the
+            # plumbing client instead of the static spot.csv.
+            _data = ld.entsoe_spot_loader(country_list=country,
+                                          bT=self.start_date,
+                                          eT=self.end_date)
+        else:
+            _data = ld.spot_loader(country_list=country,
+                                   bT=self.start_date,
+                                   eT=self.end_date,
+                                   path=path_spot)
         self.data['date'] = _data.index.to_frame()
         for (_border, _border_type) in zip(self.border, self.border_type):
             self.data[_border] = _data.loc[:, self.dictionary_borders([_border])]
