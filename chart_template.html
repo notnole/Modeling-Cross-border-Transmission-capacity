@@ -12,6 +12,8 @@
     --s-model:    #2a78d6;
     --s-all:      #eb6834;
     --s-ceil:     #1baf7a;
+    --s-cap:      #eda100;
+    --s-both:     #4a3aa7;
     --wash:       rgba(42,120,214,0.07);
     --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     --mono: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
@@ -29,6 +31,8 @@
       --s-model:  #3987e5;
       --s-all:    #d95926;
       --s-ceil:   #199e70;
+      --s-cap:    #c98500;
+      --s-both:   #9085e9;
       --wash:     rgba(57,135,229,0.10);
     }
   }
@@ -44,6 +48,8 @@
     --s-model:  #3987e5;
     --s-all:    #d95926;
     --s-ceil:   #199e70;
+    --s-cap:    #c98500;
+    --s-both:   #9085e9;
     --wash:     rgba(57,135,229,0.10);
   }
 
@@ -130,6 +136,11 @@
     letter-spacing: -0.008em;
   }
   .note { margin: 0; font-size: 13.5px; color: var(--ink-2); max-width: 78ch; }
+  h3.sub {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.11em;
+    text-transform: uppercase; color: var(--muted); font-weight: 600;
+    margin: 12px 0 -4px;
+  }
   .plot {
     background: var(--surface);
     border: 1px solid var(--hairline);
@@ -178,6 +189,23 @@
   th i.c-model { background: var(--s-model); }
   th i.c-all   { background: var(--s-all); }
   th i.c-ceil  { background: var(--s-ceil); }
+
+  .mtx {
+    display: grid; grid-template-columns: auto 1fr 1fr; gap: 1px;
+    background: var(--hairline); border: 1px solid var(--hairline);
+    font-family: var(--mono); font-size: 12.5px;
+  }
+  .mtx > div { background: var(--surface); padding: 11px 13px; }
+  .mtx .hd {
+    font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--muted); font-weight: 600;
+  }
+  .mtx .cell b {
+    display: block; font-size: 17px; font-variant-numeric: tabular-nums;
+    font-weight: 600; letter-spacing: -0.01em;
+  }
+  .mtx .cell span { color: var(--ink-2); font-size: 11.5px; }
+  .mtx .cell.hi { background: var(--wash); }
 
   .tip {
     position: fixed; z-index: 9; pointer-events: none; opacity: 0;
@@ -254,6 +282,34 @@
     <div class="plot" id="p-corr"></div>
   </section>
 
+  <section id="s-cmp" hidden>
+    <h2>Against the fundamental model</h2>
+    <p class="note">The sibling <code>capacities</code> project attacks the same auction from the
+      opposite direction: per-zone LGBM day-ahead price forecasts off 64 Volue fundamentals curves,
+      turned into a predicted spread and bid at its <b>p50</b> with a calibration factor. No forwards,
+      no fitted volatility. Both bid books overlap on <span id="cmp-scope"></span>, and both are
+      scored here against <b>this</b> project&rsquo;s realised values &mdash; the two agree to
+      0.016 EUR/MWh on average anyway, computing the same payoff from independent price pulls.</p>
+
+    <h3 class="sub">How accurate is each value estimate?</h3>
+    <p class="note">Rule-independent: just the predicted value against what the right turned out to be
+      worth. Shorter is better. The forward spread floored at zero is the do-nothing reference.</p>
+    <div class="plot" id="p-acc"></div>
+
+    <h3 class="sub">And what does each bid rule earn?</h3>
+    <p class="note">Cumulative, same auctions, same target. Neither model on its own clears zero.
+      The interesting line is <b>both agree</b> &mdash; buy only where the forward-vol model and the
+      fundamental model independently say the right is worth more than it cleared.</p>
+    <div class="legend" id="lg4"></div>
+    <div class="plot" id="p-cmp"></div>
+
+    <h3 class="sub">Where the money is: agreement, not either model</h3>
+    <p class="note">Mean P&amp;L per auction in each cell of the 2&times;2. Disagreement is the signal
+      to stay out: whenever one model buys and the other declines, the average auction loses money.</p>
+    <div class="mtx" id="mtx"></div>
+    <p class="note" id="cmp-caveat"></p>
+  </section>
+
   <section>
     <h2>Table view</h2>
     <p class="note">Every month, both P&amp;L in EUR and the count of rights bought out of the eight offered.</p>
@@ -318,6 +374,15 @@ const DATA = __DATA__;
     return up
       ? `M${x},${y + h}V${y + r}q0,${-r} ${r},${-r}h${w - 2 * r}q${r},0 ${r},${r}V${y + h}Z`
       : `M${x},${y}V${y + h - r}q0,${r} ${r},${r}h${w - 2 * r}q${r},0 ${r},${-r}V${y}Z`;
+  }
+
+  /* push near-identical end-label positions apart so they never overlap */
+  function declash(items, minGap) {
+    items.sort((a, b) => a.y - b.y);
+    for (let i = 1; i < items.length; i++) {
+      if (items[i].y - items[i - 1].y < minGap) items[i].y = items[i - 1].y + minGap;
+    }
+    return items;
   }
 
   function ticks(lo, hi, n) {
@@ -450,6 +515,7 @@ const DATA = __DATA__;
       }
     });
 
+    const labels = [];
     for (const L of lines) {
       svg.append(el("path", {
         class: "series-line", stroke: col(L.v),
@@ -457,11 +523,14 @@ const DATA = __DATA__;
         "stroke-opacity": L.dashed ? 0.85 : 1,
         d: L.y.map((v, i) => (i ? "L" : "M") + X(i) + "," + Y(v)).join(" "),
       }));
-      /* direct end label - also the relief for the aqua contrast warning */
       const last = L.y[L.y.length - 1];
-      const t1 = el("text", { x: m.l + iw + 9, y: Y(last) + 3.5, class: "val" });
+      labels.push({ y: Y(last) + 3.5, txt: eur(last) + (L.dashed ? "  (ex DE-AT)" : "") });
+    }
+    /* direct end labels - also the relief for the aqua contrast warning */
+    for (const lb of declash(labels, 12)) {
+      const t1 = el("text", { x: m.l + iw + 9, y: lb.y, class: "val" });
       t1.setAttribute("fill", col("--ink"));   /* text wears a text token; the line carries identity */
-      t1.textContent = eur(last) + (L.dashed ? "  (ex DE-AT)" : "");
+      t1.textContent = lb.txt;
       svg.append(t1);
     }
 
@@ -577,7 +646,148 @@ const DATA = __DATA__;
     "<b>t = +0.68</b>, and the correlation between the model&rsquo;s edge and realised P&amp;L is " +
     "<b>&minus;0.010</b> &mdash; treat the total as one border&rsquo;s luck until a longer window says otherwise.";
 
-  function drawAll() { drawMonth(); drawCum(); drawCorr(); drawTable(); }
+  /* ---------- comparison against the fundamental model ---------- */
+  const C = D.compare;
+  const CMP = [
+    { k: "all",  name: "Buy everything",  v: "--s-all",   dash: "7 4" },
+    { k: "cap",  name: "Fundamental bid", v: "--s-cap",   dash: "2 3" },
+    { k: "mar",  name: "Margrabe bid",    v: "--s-model", dash: "" },
+    { k: "both", name: "Both agree",      v: "--s-both",  dash: "10 3 2 3" },
+  ];
+
+  function drawAcc() {
+    const host = document.getElementById("p-acc");
+    host.textContent = "";
+    const rows = C.accuracy;
+    const hue = { "Margrabe value": "--s-model", "Fundamental p50": "--s-cap",
+                  "Fundamental bid (p50 x k)": "--s-cap", "Forward spread, floored": "--muted" };
+    const W = 1120, rowH = 40, m = { l: 210, r: 250, t: 24, b: 30 };
+    const ih = rows.length * rowH, H = ih + m.t + m.b, iw = W - m.l - m.r;
+    const hi = Math.max(...rows.map(r => r.mae)) * 1.06;
+    const X = v => m.l + v / hi * iw;
+    const svg = el("svg", { viewBox: "0 0 " + W + " " + H, role: "img",
+      "aria-label": "Mean absolute error of each value estimate against the realised value" });
+    for (const t of ticks(0, hi, 5)) {
+      svg.append(el("line", { class: "gridline", x1: X(t), x2: X(t), y1: m.t - 8, y2: m.t + ih }));
+      const tx = el("text", { x: X(t), y: m.t - 13, "text-anchor": "middle" });
+      tx.textContent = t.toFixed(1); svg.append(tx);
+    }
+    rows.forEach((r, i) => {
+      const yc = m.t + i * rowH + rowH / 2;
+      svg.append(el("path", { d: barPathH(m.l, yc - 6, X(r.mae) - m.l, 12, 4, true),
+        fill: col(hue[r.name] || "--muted") }));
+      const nm = el("text", { x: m.l - 12, y: yc + 3.5, "text-anchor": "end", class: "axis" });
+      nm.textContent = r.name; svg.append(nm);
+      const lb = el("text", { x: X(r.mae) + 10, y: yc + 3.5, class: "val" });
+      lb.setAttribute("fill", col("--ink"));
+      lb.textContent = "MAE " + r.mae.toFixed(2) + "   bias " +
+        (r.me >= 0 ? "+" : "\u2212") + Math.abs(r.me).toFixed(2) + "   r " + r.corr.toFixed(2);
+      svg.append(lb);
+    });
+    const at = el("text", { x: m.l + iw / 2, y: H - 6, "text-anchor": "middle", class: "axis" });
+    at.textContent = "Mean absolute error vs realised value \u00b7 EUR/MWh"; svg.append(at);
+    host.append(svg);
+  }
+
+  function drawCmp() {
+    const host = document.getElementById("p-cmp");
+    host.textContent = "";
+    const rows = C.monthly;
+    const W = 1120, H = 320, m = { l: 62, r: 158, t: 16, b: 46 };
+    const iw = W - m.l - m.r, ih = H - m.t - m.b;
+    const lines = CMP.map(s => {
+      let a = 0;
+      return { ...s, y: rows.map(r => (a += r[s.k])) };
+    });
+    let lo = 0, hi = 0;
+    for (const L of lines) for (const v of L.y) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
+    const T = ticks(lo, hi, 6);
+    lo = Math.min(lo, T[0]); hi = Math.max(hi, T[T.length - 1]);
+    const X = i => m.l + i / (rows.length - 1) * iw;
+    const Y = v => m.t + ih - (v - lo) / (hi - lo) * ih;
+
+    const svg = el("svg", { viewBox: "0 0 " + W + " " + H, role: "img",
+      "aria-label": "Cumulative profit and loss of four bid rules on the overlapping auctions" });
+    for (const t of T) {
+      svg.append(el("line", { class: t === 0 ? "zero-rule" : "gridline",
+        x1: m.l, x2: m.l + iw, y1: Y(t), y2: Y(t) }));
+      const tx = el("text", { x: m.l - 9, y: Y(t) + 3.5, "text-anchor": "end" });
+      tx.textContent = eurK(t); svg.append(tx);
+    }
+    const al = el("text", { x: m.l - 9, y: m.t - 5, "text-anchor": "end", class: "axis" });
+    al.textContent = "EUR"; svg.append(al);
+    rows.forEach((r, i) => {
+      if (r.m.slice(5) === "01" || i === 0 || i === rows.length - 1) {
+        svg.append(el("line", { class: "gridline", x1: X(i), x2: X(i), y1: m.t, y2: m.t + ih }));
+        const lb = el("text", { x: X(i), y: m.t + ih + 16, "text-anchor": "middle" });
+        lb.textContent = r.m; svg.append(lb);
+      }
+    });
+    const labels = [];
+    for (const L of lines) {
+      svg.append(el("path", { class: "series-line", stroke: col(L.v),
+        "stroke-dasharray": L.dash,
+        d: L.y.map((v, i) => (i ? "L" : "M") + X(i) + "," + Y(v)).join(" ") }));
+      const last = L.y[L.y.length - 1];
+      const st = C.strategies.find(s => s.key === L.k);
+      labels.push({ y: Y(last) + 3.5, txt: eur(last) + "   n=" + st.n });
+    }
+    for (const lb of declash(labels, 12)) {
+      const t1 = el("text", { x: m.l + iw + 9, y: lb.y, class: "val" });
+      t1.setAttribute("fill", col("--ink"));
+      t1.textContent = lb.txt;
+      svg.append(t1);
+    }
+    const cross = el("line", { y1: m.t, y2: m.t + ih, stroke: col("--ink-2"),
+      "stroke-opacity": 0.45, "stroke-width": 1, visibility: "hidden" });
+    svg.append(cross);
+    const hit = el("rect", { x: m.l, y: m.t, width: iw, height: ih, fill: "transparent" });
+    hit.addEventListener("mousemove", ev => {
+      const box = svg.getBoundingClientRect();
+      let i = Math.round(((ev.clientX - box.left) / box.width * W - m.l) / iw * (rows.length - 1));
+      i = Math.max(0, Math.min(rows.length - 1, i));
+      cross.setAttribute("x1", X(i)); cross.setAttribute("x2", X(i));
+      cross.setAttribute("visibility", "visible");
+      showTip(ev, "cumulative through " + rows[i].m,
+        lines.map(L => ({ c: col(L.v), l: L.name, v: eur(L.y[i]) })));
+    });
+    hit.addEventListener("mouseleave", () => { hideTip(); cross.setAttribute("visibility", "hidden"); });
+    svg.append(hit);
+    host.append(svg);
+  }
+
+  function drawMatrix() {
+    const cell = (mar, cap) => C.matrix.find(r => r.mar === mar && r.cap === cap);
+    const box = (r, hi) => '<div class="cell' + (hi ? " hi" : "") + '"><b>' +
+      (r.mean === null ? "\u2014" : eur(r.mean)) + "</b><span>" + r.n +
+      " auctions \u00b7 total " + eur(r.total) + "</span></div>";
+    document.getElementById("mtx").innerHTML =
+      '<div class="hd"></div><div class="hd">Fundamental buys</div><div class="hd">Fundamental declines</div>' +
+      '<div class="hd">Margrabe buys</div>' + box(cell(true, true), true) + box(cell(true, false), false) +
+      '<div class="hd">Margrabe declines</div>' + box(cell(false, true), false) + box(cell(false, false), false);
+
+    const both = C.strategies.find(s => s.key === "both");
+    document.getElementById("cmp-scope").textContent =
+      C.meta.n + " auctions, " + C.meta.corridors + " corridors, " +
+      C.meta.first + " to " + C.meta.last;
+    document.getElementById("cmp-caveat").innerHTML =
+      "Read the agreement result with the same discount as everything else on this page: " +
+      "<b>t = " + both.t.toFixed(2) + "</b> on " + both.n + " auctions, and with DE-AT/AT-DE removed it is " +
+      "<b>" + eur(both.ex_total) + "</b> over " + both.ex_n + " &mdash; a loss, like every other rule here. " +
+      "What survives the concentration test is only the ordering: ex-DE-AT, agreement loses " +
+      "" + eur(both.ex_total / both.ex_n) + " per auction against " +
+      eur(C.strategies[0].ex_total / C.strategies[0].ex_n) + " for buying everything. " +
+      "On borders with no free money, the best this does is lose less.";
+  }
+
+  function drawAll() {
+    drawMonth(); drawCum(); drawCorr(); drawTable();
+    if (C) {
+      document.getElementById("s-cmp").hidden = false;
+      legend("lg4", CMP);
+      drawAcc(); drawCmp(); drawMatrix();
+    }
+  }
   drawAll();
   let rt;
   addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(drawAll, 140); });

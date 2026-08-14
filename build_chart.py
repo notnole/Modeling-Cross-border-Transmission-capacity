@@ -21,6 +21,9 @@ import pandas as pd
 HERE = Path(__file__).parent
 OUT = HERE / "outputs"
 DE_AT_PAIR = ["de_at", "at_de"]
+# the fundamental model's own bid book, for the head-to-head. Its `bid` is the
+# LGBM predicted-value p50 times a calibration factor k.
+CAP_BIDS = HERE.parent / "capacities" / "price_model" / "outputs" / "bids_20260803.csv"
 
 
 def monthly(sub: pd.DataFrame) -> list[dict]:
@@ -35,6 +38,87 @@ def monthly(sub: pd.DataFrame) -> list[dict]:
             mdl_mwh=round(won["pnl_mwh"].mean(), 2) if len(won) else None,
         ))
     return rows
+
+
+def compare(s: pd.DataFrame) -> dict | None:
+    """Head-to-head against projects/capacities' fundamental LGBM bid book.
+
+    Joined on (corridor, delivery month). Both strategies are scored against
+    THIS project's realised values so the target is identical — the two
+    projects agree to 0.016 EUR/MWh mean anyway, computing the same
+    `spread.clip(lower=0).mean()` over the delivery window from independent
+    price pulls. The two exceptions: capacities' CZ-SK 2025-07 is 1.57 lower
+    (its price file has NaN hours there, which its dropna() removes), and DST
+    months differ by the one repeated CET hour its window counts.
+    """
+    if not CAP_BIDS.exists():
+        print(f"skip comparison: {CAP_BIDS} not found")
+        return None
+    cap = pd.read_csv(CAP_BIDS)
+    m = s.copy()
+    m["corridor"] = m["border"].str.upper().str.replace("_", "-", regex=False)
+    j = (cap[["corridor", "month", "clearing", "p50", "bid"]]
+         .merge(m[["corridor", "delivery_month", "value", "clearing", "intrinsic",
+                   "realised_value", "realised_hours", "pnl_eur"]],
+                left_on=["corridor", "month"], right_on=["corridor", "delivery_month"],
+                suffixes=("_cap", ""))
+         .dropna(subset=["clearing", "realised_value", "bid"]))
+    if j.empty:
+        return None
+
+    j["buy_mar"] = j["value"] >= j["clearing"]
+    j["buy_cap"] = j["bid"] >= j["clearing"]
+    j["buy_both"] = j["buy_mar"] & j["buy_cap"]
+    j["fs"] = j["realised_value"] > j["clearing"]
+    ex = ~j["corridor"].isin(["DE-AT", "AT-DE"])
+
+    def tot(mask):
+        e = j.loc[mask, "pnl_eur"]
+        t = (e.mean() / (e.std(ddof=1) / np.sqrt(len(e)))) if len(e) > 1 else None
+        return dict(n=int(len(e)), total=round(e.sum(), 1),
+                    mean=round(e.mean(), 1) if len(e) else 0.0,
+                    t=round(t, 2) if t is not None else None,
+                    hit=round(100 * (e > 0).mean(), 1) if len(e) else 0.0,
+                    ex_n=int(mask.__and__(ex).sum()),
+                    ex_total=round(j.loc[mask & ex, "pnl_eur"].sum(), 1))
+
+    strategies = [
+        dict(key="all",  name="Buy everything",  v="--s-all",   **tot(pd.Series(True, index=j.index))),
+        dict(key="cap",  name="Fundamental bid", v="--s-cap",   **tot(j["buy_cap"])),
+        dict(key="mar",  name="Margrabe bid",    v="--s-model", **tot(j["buy_mar"])),
+        dict(key="both", name="Both agree",      v="--s-both",  **tot(j["buy_both"])),
+    ]
+    accuracy = []
+    for name, c in (("Margrabe value", "value"), ("Fundamental p50", "p50"),
+                    ("Fundamental bid (p50 x k)", "bid"), ("Forward spread, floored", "intrinsic")):
+        e = j[c] - j["realised_value"]
+        accuracy.append(dict(name=name, me=round(e.mean(), 2), mae=round(e.abs().mean(), 2),
+                             corr=round(j[c].corr(j["realised_value"]), 3)))
+
+    monthly = []
+    for mo, g in j.groupby("delivery_month"):
+        monthly.append(dict(m=mo,
+                            all=round(g["pnl_eur"].sum(), 1),
+                            cap=round(g.loc[g["buy_cap"], "pnl_eur"].sum(), 1),
+                            mar=round(g.loc[g["buy_mar"], "pnl_eur"].sum(), 1),
+                            both=round(g.loc[g["buy_both"], "pnl_eur"].sum(), 1)))
+
+    matrix = []
+    for mb in (True, False):
+        for cb in (True, False):
+            e = j.loc[(j["buy_mar"] == mb) & (j["buy_cap"] == cb), "pnl_eur"]
+            matrix.append(dict(mar=mb, cap=cb, n=int(len(e)),
+                               mean=round(e.mean(), 1) if len(e) else None,
+                               total=round(e.sum(), 1) if len(e) else 0.0))
+
+    return dict(strategies=strategies, accuracy=accuracy, monthly=monthly, matrix=matrix,
+                meta=dict(n=len(j), months=int(j["delivery_month"].nunique()),
+                          corridors=int(j["corridor"].nunique()),
+                          first=min(monthly, key=lambda r: r["m"])["m"],
+                          last=max(monthly, key=lambda r: r["m"])["m"],
+                          ceiling=round(j.loc[j["fs"], "pnl_eur"].sum(), 1),
+                          ex_ceiling=round(j.loc[j["fs"] & ex, "pnl_eur"].sum(), 1),
+                          source=CAP_BIDS.name))
 
 
 def main() -> None:
@@ -59,7 +143,7 @@ def main() -> None:
             clearing=round(g["clearing"].mean(), 2)))
 
     data = dict(
-        full=full, ex_deat=ex, corridors=corr,
+        full=full, ex_deat=ex, corridors=corr, compare=compare(s),
         meta=dict(n=len(s), months=len(full), corridors=int(s["border"].nunique()),
                   first=full[0]["m"], last=full[-1]["m"],
                   all_total=round(s["pnl_eur"].sum(), 1),

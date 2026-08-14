@@ -178,6 +178,64 @@ bid never moves the clearing price — plausible at small MW against
 derating the `capacities` project models), and 24 delivery months on 8 corridors
 is a small sample with P&L correlated across corridors within a month.
 
+## Head-to-head with the fundamental model (`projects/capacities`)
+
+`build_chart.py::compare()` joins this project's bid book to
+`capacities/price_model/outputs/bids_20260803.csv` on (corridor, delivery
+month). That book is the opposite approach — per-zone LGBM day-ahead forecasts
+off 64 Volue fundamentals curves, bid at the predicted-value `p50` times a
+calibration `k`, no forwards and no fitted volatility. Overlap: **144 auctions,
+8 corridors, 2025-02 → 2026-07**. Both are scored against *this* project's
+realised values so the target is identical.
+
+**The two projects independently agree on the payoff** — mean |difference|
+**0.016 EUR/MWh** across 144 auctions, from separate price pulls (they use
+ENTSO-E for SK, this uses OKTE) running the same
+`spread.clip(lower=0).mean()`. Two exceptions: their CZ-SK 2025-07 is 1.57
+lower because their price file has NaN hours there and `value.py` drops them
+(my panel is complete for that month, and my SK/CZ match ENTSO-E to 0.000);
+and DST months differ by the one repeated CET hour their window counts.
+
+Value-estimate accuracy, which needs no bidding rule to interpret:
+
+| estimate | ME | MAE | corr |
+|---|---|---|---|
+| **Margrabe value** (forwards + fitted vol) | **+0.04** | **2.68** | +0.617 |
+| Forward spread, floored at 0 | −1.61 | 3.18 | +0.610 |
+| Fundamental bid (`p50 × k`) | +1.92 | 3.89 | +0.608 |
+| Fundamental `p50` | +2.38 | 3.96 | +0.567 |
+
+**The forwards-only model is the more accurate of the two here** — lower MAE and
+nearly no bias, where the fundamental model runs +1.9 to +2.4 EUR/MWh high,
+which for a bidder means systematic overpaying. Do not read the +0.04 as
+"unbiased": on the longer 390-auction backtest the same model runs ME −0.77, so
+the bias is not stable across windows.
+
+Bidding P&L on the 144, EUR at 1 MW (ceiling = 126,792):
+
+| rule | n | total | mean | t | n ex-DE-AT | total ex-DE-AT |
+|---|---|---|---|---|---|---|
+| Buy everything | 144 | −26,133 | −181 | −0.73 | 108 | −52,313 |
+| Fundamental bid | 90 | +707 | +8 | +0.02 | 64 | −34,952 |
+| Margrabe bid | 66 | +716 | +11 | +0.03 | 47 | −22,405 |
+| **Both agree** | 49 | **+16,105** | **+329** | +0.69 | 32 | **−9,862** |
+
+Neither model alone clears zero. Requiring **both** to agree is 20x either one —
+and it still fails the same two tests everything else on this page fails:
+t = +0.69, and ex-DE-AT it is a loss. The agreement 2×2 is the part worth
+keeping, because it is an ordering rather than a level:
+
+| | fundamental buys | fundamental declines |
+|---|---|---|
+| **Margrabe buys** | **+329** (n=49) | −905 (n=17) |
+| **Margrabe declines** | −376 (n=41) | −309 (n=37) |
+
+**Disagreement is a stay-out signal.** Whenever one model buys and the other
+declines, the average auction loses — most sharply when Margrabe buys alone
+(−905/auction, t = −1.78). Ex-DE-AT, agreement loses 308/auction against 484 for
+buying everything: on borders with no free money, the best this does is lose
+less.
+
 ## Fixed in `p_soft/` (2026-08-14)
 
 Minimum set to make the model run on current data. **No model logic changed** —
