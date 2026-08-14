@@ -1,0 +1,586 @@
+<title>Margrabe Bid Ledger</title>
+<style>
+  :root {
+    color-scheme: light;
+    --plane:      #f9f9f7;
+    --surface:    #fcfcfb;
+    --ink:        #0b0b0b;
+    --ink-2:      #52514e;
+    --muted:      #898781;
+    --grid:       #e1e0d9;
+    --hairline:   rgba(11,11,11,0.10);
+    --s-model:    #2a78d6;
+    --s-all:      #eb6834;
+    --s-ceil:     #1baf7a;
+    --wash:       rgba(42,120,214,0.07);
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --plane:    #0d0d0d;
+      --surface:  #1a1a19;
+      --ink:      #ffffff;
+      --ink-2:    #c3c2b7;
+      --muted:    #898781;
+      --grid:     #2c2c2a;
+      --hairline: rgba(255,255,255,0.10);
+      --s-model:  #3987e5;
+      --s-all:    #d95926;
+      --s-ceil:   #199e70;
+      --wash:     rgba(57,135,229,0.10);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --plane:    #0d0d0d;
+    --surface:  #1a1a19;
+    --ink:      #ffffff;
+    --ink-2:    #c3c2b7;
+    --muted:    #898781;
+    --grid:     #2c2c2a;
+    --hairline: rgba(255,255,255,0.10);
+    --s-model:  #3987e5;
+    --s-all:    #d95926;
+    --s-ceil:   #199e70;
+    --wash:     rgba(57,135,229,0.10);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--plane);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 40px 24px 72px;
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+  }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0;
+  }
+  h1 {
+    font-size: clamp(25px, 3.4vw, 35px);
+    line-height: 1.14;
+    letter-spacing: -0.018em;
+    font-weight: 600;
+    margin: 8px 0 0;
+    text-wrap: balance;
+  }
+  .lede { margin: 12px 0 0; max-width: 68ch; color: var(--ink-2); font-size: 15.5px; }
+  .lede b { color: var(--ink); font-weight: 600; }
+  header { border-bottom: 1px solid var(--hairline); padding-bottom: 26px; }
+
+  .scope {
+    display: flex; gap: 14px; align-items: flex-start;
+    background: var(--wash);
+    border-left: 2px solid var(--s-model);
+    padding: 14px 18px;
+    font-size: 13.5px;
+    color: var(--ink-2);
+  }
+  .scope p { margin: 0; }
+  .scope p + p { margin-top: 7px; }
+  .scope .k {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--s-model); white-space: nowrap;
+    padding-top: 2px; font-weight: 600;
+  }
+  code { font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
+
+  .kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
+    gap: 1px;
+    background: var(--hairline);
+    border: 1px solid var(--hairline);
+  }
+  .kpi { background: var(--surface); padding: 15px 17px 16px; }
+  .kpi .lab {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.09em;
+    text-transform: uppercase; color: var(--muted); display: block;
+  }
+  .kpi .val {
+    font-family: var(--mono); font-size: 24px; font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em; margin-top: 7px; display: block; line-height: 1.1;
+  }
+  .kpi .sub { font-size: 12px; color: var(--ink-2); margin-top: 5px; display: block; }
+  .kpi .lab i {
+    width: 9px; height: 9px; border-radius: 2px; display: inline-block;
+    margin-right: 6px; vertical-align: -1px;
+  }
+
+  section { display: flex; flex-direction: column; gap: 14px; }
+  h2 {
+    font-size: 17px; font-weight: 600; margin: 0;
+    letter-spacing: -0.008em;
+  }
+  .note { margin: 0; font-size: 13.5px; color: var(--ink-2); max-width: 78ch; }
+  .plot {
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    padding: 16px 14px 10px;
+    overflow-x: auto;
+  }
+  .plot svg { display: block; width: 100%; height: auto; overflow: visible; min-width: 640px; }
+
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 18px;
+    font-family: var(--mono); font-size: 11.5px; color: var(--ink-2);
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 7px; }
+  .legend i {
+    width: 22px; height: 0; border-top-width: 2.5px; border-top-style: solid;
+    display: inline-block;
+  }
+  .legend i.sq { height: 10px; border: 0; border-radius: 2px; width: 11px; }
+
+  text { font-family: var(--mono); font-size: 10.5px; fill: var(--muted); }
+  text.val { font-size: 10px; }
+  text.axis { font-size: 10.5px; fill: var(--ink-2); }
+  .gridline { stroke: var(--grid); stroke-width: 1; }
+  .zero-rule { stroke: var(--ink-2); stroke-width: 1.25; }
+  .series-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .bar-gap { stroke: var(--surface); stroke-width: 2; }
+
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  .tablewrap { overflow-x: auto; border: 1px solid var(--hairline); background: var(--surface); }
+  th, td {
+    padding: 7px 11px; text-align: right; white-space: nowrap;
+    border-bottom: 1px solid var(--hairline);
+    font-variant-numeric: tabular-nums; font-family: var(--mono); font-size: 12.5px;
+  }
+  th {
+    font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--muted); font-weight: 600; position: sticky; top: 0;
+    background: var(--surface);
+  }
+  td:first-child, th:first-child { text-align: left; color: var(--ink-2); }
+  tbody tr:last-child td { border-bottom: 0; }
+  tfoot td { font-weight: 600; border-top: 1px solid var(--ink-2); border-bottom: 0; }
+  th i {
+    width: 8px; height: 8px; border-radius: 2px; display: inline-block; margin-right: 5px;
+  }
+  th i.c-model { background: var(--s-model); }
+  th i.c-all   { background: var(--s-all); }
+  th i.c-ceil  { background: var(--s-ceil); }
+
+  .tip {
+    position: fixed; z-index: 9; pointer-events: none; opacity: 0;
+    transition: opacity .09s linear;
+    background: var(--surface); border: 1px solid var(--hairline);
+    box-shadow: 0 6px 22px rgba(0,0,0,0.16);
+    padding: 9px 11px; font-family: var(--mono); font-size: 11.5px;
+    color: var(--ink); min-width: 150px;
+  }
+  .tip .t { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+  .tip .r { display: flex; justify-content: space-between; gap: 16px; margin-top: 4px; }
+  .tip .r b { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .tip .r i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; margin-right: 6px; }
+
+  footer {
+    border-top: 1px solid var(--hairline); padding-top: 20px;
+    font-size: 12.5px; color: var(--muted); max-width: 78ch;
+  }
+  footer code { color: var(--ink-2); }
+  @media (prefers-reduced-motion: reduce) { .tip { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Capacity-Margrabe &middot; monthly PTR bid rule</p>
+    <h1>Does the fair-value bid earn anything the auction wasn&rsquo;t already giving away?</h1>
+    <p class="lede">Every JAO <b>monthly</b> capacity auction on the eight borders this model can
+      price, 2024-08 &rarr; 2026-07. Each right is valued at its own <b>bid gate closure</b> &mdash; a
+      median 12 days before delivery starts &mdash; from the Margrabe spread option fitted on the
+      12 whole months of day-ahead history before it. We bid the model&rsquo;s fair value and pay
+      the clearing price when we win. Plotted against the two references that matter: <b>buying
+      every right</b> at any price, and <b>perfect foresight</b>, which buys only the rights that
+      turned out profitable.</p>
+  </header>
+
+  <div class="scope">
+    <span class="k">Read this first</span>
+    <div>
+      <p>P&amp;L is <b>EUR at 1 MW on each border</b>: <code>(realised value &minus; clearing price) &times; delivery hours</code>.
+        Realised value is <code>mean(max(P_to &minus; P_from, 0))</code> over the delivered hours &mdash; a
+        non-nominated right is paid the coupling differential under UIOSI, so a negative spread pays 0, not a loss.</p>
+      <p>Three things are deliberately <b>not</b> modelled: we assume a <b>price taker</b> (our bid never moves the
+        clearing price &mdash; plausible at 1 MW against 30-plus-bidder books, unverified); <b>maintenance deratings</b>
+        are ignored; and <code>CZ-DE</code> / <code>DE-CZ</code> are absent because they run no monthly auction at all.</p>
+    </div>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <section>
+    <h2>Profitability per delivery month</h2>
+    <p class="note">Bars are summed across the eight borders in that month, so a month where the rule
+      buys nothing sits at zero rather than going missing. The ceiling is a bound, not a rival
+      strategy &mdash; it is what the same eight rights were worth to someone who already knew.</p>
+    <div class="legend" id="lg1"></div>
+    <div class="plot" id="p-month"></div>
+  </section>
+
+  <section>
+    <h2>Cumulative, and where it all comes from</h2>
+    <p class="note">The dashed line is the same rule with <b>DE-AT and AT-DE removed</b>. That pair carries
+      the entire result: strip it and the rule is a loss, and bidding indiscriminately on it was already
+      profitable without any model. The gap between the rule and the ceiling is the honest measure of
+      how much of the available money the fair value actually finds.</p>
+    <div class="legend" id="lg2"></div>
+    <div class="plot" id="p-cum"></div>
+  </section>
+
+  <section>
+    <h2>Per corridor, whole window</h2>
+    <p class="note">Where the rule beats buying everything, it does so by declining &mdash; not by
+      buying better. Where it loses (<code>SK-HU</code>, <code>CZ-SK</code>) it bought the wrong months.</p>
+    <div class="legend" id="lg3"></div>
+    <div class="plot" id="p-corr"></div>
+  </section>
+
+  <section>
+    <h2>Table view</h2>
+    <p class="note">Every month, both P&amp;L in EUR and the count of rights bought out of the eight offered.</p>
+    <div class="tablewrap"><table id="tbl"></table></div>
+  </section>
+
+  <footer id="foot"></footer>
+</div>
+
+<div class="tip" id="tip" role="status" aria-live="polite"></div>
+
+<script>
+const DATA = __DATA__;
+</script>
+<script>
+(function () {
+  "use strict";
+  const NS = "http://www.w3.org/2000/svg";
+  const D = DATA, M = D.meta;
+  const CSS = getComputedStyle(document.documentElement);
+  const col = n => CSS.getPropertyValue(n).trim();
+
+  const SERIES = [
+    { k: "fs_eur",  key: "ceil",  name: "Perfect foresight", v: "--s-ceil",  dash: "2 3" },
+    { k: "all_eur", key: "all",   name: "Buy everything",    v: "--s-all",   dash: "7 4" },
+    { k: "mdl_eur", key: "model", name: "Model bid",         v: "--s-model", dash: "" },
+  ];
+
+  function el(t, a) {
+    const n = document.createElementNS(NS, t);
+    for (const k in a) n.setAttribute(k, a[k]);
+    return n;
+  }
+  const eur = v => (v < 0 ? "\u2212" : "+") + Math.abs(Math.round(v)).toLocaleString("en-US");
+  const eurK = v => (v < 0 ? "\u2212" : "") + (Math.abs(v) >= 1000
+    ? (Math.abs(v) / 1000).toFixed(Math.abs(v) >= 10000 ? 0 : 1) + "k"
+    : Math.round(Math.abs(v)));
+
+  /* ---------- shared tooltip ---------- */
+  const tip = document.getElementById("tip");
+  function showTip(ev, title, rows) {
+    let h = '<div class="t">' + title + "</div>";
+    for (const r of rows) {
+      h += '<div class="r"><span>' +
+        (r.c ? '<i style="background:' + r.c + '"></i>' : "") + r.l +
+        "</span><b>" + r.v + "</b></div>";
+    }
+    tip.innerHTML = h;
+    tip.style.opacity = 1;
+    const pad = 14, w = tip.offsetWidth, hh = tip.offsetHeight;
+    let x = ev.clientX + pad, y = ev.clientY + pad;
+    if (x + w > innerWidth - 8) x = ev.clientX - w - pad;
+    if (y + hh > innerHeight - 8) y = ev.clientY - hh - pad;
+    tip.style.left = x + "px";
+    tip.style.top = y + "px";
+  }
+  const hideTip = () => { tip.style.opacity = 0; };
+
+  /* rounded rect with the two data-end corners rounded, anchored at the baseline */
+  function barPath(x, y, w, h, r, up) {
+    r = Math.max(0, Math.min(r, w / 2, h));
+    return up
+      ? `M${x},${y + h}V${y + r}q0,${-r} ${r},${-r}h${w - 2 * r}q${r},0 ${r},${r}V${y + h}Z`
+      : `M${x},${y}V${y + h - r}q0,${r} ${r},${r}h${w - 2 * r}q${r},0 ${r},${-r}V${y}Z`;
+  }
+
+  function ticks(lo, hi, n) {
+    const raw = (hi - lo) / n, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= raw) || 10 * mag;
+    const out = [];
+    for (let t = Math.ceil(lo / step) * step; t <= hi + 1e-9; t += step) out.push(t);
+    return out;
+  }
+
+  /* ---------- KPIs ---------- */
+  (function () {
+    const cap = 100 * M.mdl_total / M.fs_total;
+    const rows = [
+      ["Model bid", eur(M.mdl_total), "model", M.mdl_n + " of " + M.n + " rights bought"],
+      ["Buy everything", eur(M.all_total), "all", M.n + " rights, any price"],
+      ["Perfect foresight", eur(M.fs_total), "ceil", M.fs_n + " profitable rights"],
+      ["Ceiling captured", cap.toFixed(1) + "%", "", "buy-everything: " + (100 * M.all_total / M.fs_total).toFixed(1) + "%"],
+      ["Months in profit", D.full.filter(r => r.mdl_eur > 0).length + " / " + M.months, "", "buy-everything: " +
+        D.full.filter(r => r.all_eur > 0).length + " / " + M.months],
+      ["Excl. DE-AT pair", eur(D.ex_deat.reduce((a, r) => a + r.mdl_eur, 0)), "", "the rule without its one winner"],
+    ];
+    document.getElementById("kpis").innerHTML = rows.map(([l, v, c, s]) =>
+      '<div class="kpi"><span class="lab">' +
+      (c ? '<i style="background:' + col("--s-" + c) + '"></i>' : "") + l +
+      '</span><span class="val">' + v + '</span><span class="sub">' + s + "</span></div>").join("");
+  })();
+
+  /* ---------- legends ---------- */
+  function legend(host, items) {
+    document.getElementById(host).innerHTML = items.map(s =>
+      '<span><i class="' + (s.sq ? "sq" : "") + '" style="' +
+      (s.sq ? "background:" : "border-top-color:") + col(s.v) +
+      (s.dash && !s.sq ? ";border-top-style:dashed" : "") + '"></i>' + s.name + "</span>").join("");
+  }
+  legend("lg1", SERIES.map(s => ({ ...s, sq: true })));
+  legend("lg2", SERIES.concat([{ name: "Model bid, excl. DE-AT pair", v: "--s-model", dash: "4 3" }]));
+  legend("lg3", SERIES.map(s => ({ ...s, sq: true })));
+
+  /* ---------- chart 1: grouped bars per delivery month ---------- */
+  function drawMonth() {
+    const host = document.getElementById("p-month");
+    host.textContent = "";
+    const rows = D.full;
+    const W = 1120, H = 360, m = { l: 62, r: 14, t: 16, b: 52 };
+    const iw = W - m.l - m.r, ih = H - m.t - m.b;
+    let lo = 0, hi = 0;
+    for (const r of rows) for (const s of SERIES) { lo = Math.min(lo, r[s.k]); hi = Math.max(hi, r[s.k]); }
+    const T = ticks(lo, hi, 6);
+    lo = Math.min(lo, T[0]); hi = Math.max(hi, T[T.length - 1]);
+    const Y = v => m.t + ih - (v - lo) / (hi - lo) * ih;
+    const gw = iw / rows.length, bw = Math.min(11, (gw - 8) / 3);
+
+    const svg = el("svg", { viewBox: "0 0 " + W + " " + H, role: "img",
+      "aria-label": "Profit and loss in euro for each delivery month, three strategies" });
+    for (const t of T) {
+      svg.append(el("line", { class: t === 0 ? "zero-rule" : "gridline",
+        x1: m.l, x2: m.l + iw, y1: Y(t), y2: Y(t) }));
+      const tx = el("text", { x: m.l - 9, y: Y(t) + 3.5, "text-anchor": "end" });
+      tx.textContent = eurK(t); svg.append(tx);
+    }
+    const al = el("text", { x: m.l - 9, y: m.t - 5, "text-anchor": "end", class: "axis" });
+    al.textContent = "EUR"; svg.append(al);
+
+    rows.forEach((r, i) => {
+      const gx = m.l + i * gw + (gw - bw * 3 - 4) / 2;
+      SERIES.forEach((s, j) => {
+        const v = r[s.k], x = gx + j * (bw + 2);
+        const y0 = Y(0), y1 = Y(v), h = Math.abs(y1 - y0);
+        if (h > 0.4) {
+          svg.append(el("path", { d: barPath(x, Math.min(y0, y1), bw, h, 4, v >= 0),
+            fill: col(s.v) }));
+        } else {
+          svg.append(el("rect", { x: x, y: y0 - 0.5, width: bw, height: 1, fill: col(s.v) }));
+        }
+      });
+      const lb = el("text", { x: m.l + i * gw + gw / 2, y: m.t + ih + 15, "text-anchor": "middle" });
+      lb.textContent = r.m.slice(5); svg.append(lb);
+      if (r.m.slice(5) === "01" || i === 0) {
+        const yr = el("text", { x: m.l + i * gw + gw / 2, y: m.t + ih + 30,
+          "text-anchor": "middle", class: "axis" });
+        yr.textContent = r.m.slice(0, 4); svg.append(yr);
+      }
+      const hit = el("rect", { x: m.l + i * gw, y: m.t, width: gw, height: ih, fill: "transparent" });
+      hit.addEventListener("mousemove", ev => showTip(ev, r.m + " \u00b7 " + r.hours + " h",
+        SERIES.map(s => ({ c: col(s.v), l: s.name, v: eur(r[s.k]) }))
+          .concat([{ l: "bought / offered", v: r.mdl_n + " / " + r.n }])));
+      hit.addEventListener("mouseleave", hideTip);
+      svg.append(hit);
+    });
+    host.append(svg);
+  }
+
+  /* ---------- chart 2: cumulative lines ---------- */
+  function drawCum() {
+    const host = document.getElementById("p-cum");
+    host.textContent = "";
+    const rows = D.full, ex = D.ex_deat;
+    const W = 1120, H = 330, m = { l: 62, r: 148, t: 16, b: 46 };
+    const iw = W - m.l - m.r, ih = H - m.t - m.b;
+
+    const cum = k => { let a = 0; return rows.map(r => (a += r[k])); };
+    const lines = SERIES.map(s => ({ ...s, y: cum(s.k), dashed: false }));
+    let a = 0;
+    lines.push({ name: "Model bid, excl. DE-AT pair", v: "--s-model", dash: "4 3", dashed: true,
+      y: ex.map(r => (a += r.mdl_eur)) });
+
+    let lo = 0, hi = 0;
+    for (const L of lines) for (const v of L.y) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
+    const T = ticks(lo, hi, 6);
+    lo = Math.min(lo, T[0]); hi = Math.max(hi, T[T.length - 1]);
+    const X = i => m.l + (rows.length === 1 ? iw / 2 : i / (rows.length - 1) * iw);
+    const Y = v => m.t + ih - (v - lo) / (hi - lo) * ih;
+
+    const svg = el("svg", { viewBox: "0 0 " + W + " " + H, role: "img",
+      "aria-label": "Cumulative profit and loss in euro across the window" });
+    for (const t of T) {
+      svg.append(el("line", { class: t === 0 ? "zero-rule" : "gridline",
+        x1: m.l, x2: m.l + iw, y1: Y(t), y2: Y(t) }));
+      const tx = el("text", { x: m.l - 9, y: Y(t) + 3.5, "text-anchor": "end" });
+      tx.textContent = eurK(t); svg.append(tx);
+    }
+    const al = el("text", { x: m.l - 9, y: m.t - 5, "text-anchor": "end", class: "axis" });
+    al.textContent = "EUR"; svg.append(al);
+    rows.forEach((r, i) => {
+      if (r.m.slice(5) === "01" || i === 0 || i === rows.length - 1) {
+        svg.append(el("line", { class: "gridline", x1: X(i), x2: X(i), y1: m.t, y2: m.t + ih }));
+        const lb = el("text", { x: X(i), y: m.t + ih + 16, "text-anchor": "middle" });
+        lb.textContent = r.m; svg.append(lb);
+      }
+    });
+
+    for (const L of lines) {
+      svg.append(el("path", {
+        class: "series-line", stroke: col(L.v),
+        "stroke-dasharray": L.dashed ? L.dash : "",
+        "stroke-opacity": L.dashed ? 0.85 : 1,
+        d: L.y.map((v, i) => (i ? "L" : "M") + X(i) + "," + Y(v)).join(" "),
+      }));
+      /* direct end label - also the relief for the aqua contrast warning */
+      const last = L.y[L.y.length - 1];
+      const t1 = el("text", { x: m.l + iw + 9, y: Y(last) + 3.5, class: "val" });
+      t1.setAttribute("fill", col("--ink"));   /* text wears a text token; the line carries identity */
+      t1.textContent = eur(last) + (L.dashed ? "  (ex DE-AT)" : "");
+      svg.append(t1);
+    }
+
+    /* crosshair */
+    const cross = el("line", { class: "gridline", y1: m.t, y2: m.t + ih,
+      stroke: col("--ink-2"), "stroke-opacity": 0.45, visibility: "hidden" });
+    svg.append(cross);
+    const hit = el("rect", { x: m.l, y: m.t, width: iw, height: ih, fill: "transparent" });
+    hit.addEventListener("mousemove", ev => {
+      const box = svg.getBoundingClientRect();
+      const px = (ev.clientX - box.left) / box.width * W;
+      let i = Math.round((px - m.l) / iw * (rows.length - 1));
+      i = Math.max(0, Math.min(rows.length - 1, i));
+      cross.setAttribute("x1", X(i)); cross.setAttribute("x2", X(i));
+      cross.setAttribute("visibility", "visible");
+      showTip(ev, "cumulative through " + rows[i].m,
+        lines.map(L => ({ c: col(L.v), l: L.name, v: eur(L.y[i]) })));
+    });
+    hit.addEventListener("mouseleave", () => { hideTip(); cross.setAttribute("visibility", "hidden"); });
+    svg.append(hit);
+    host.append(svg);
+  }
+
+  /* ---------- chart 3: per corridor ---------- */
+  function drawCorr() {
+    const host = document.getElementById("p-corr");
+    host.textContent = "";
+    const rows = D.corridors.slice().sort((a, b) => b.mdl - a.mdl);
+    const W = 1120, rowH = 46, m = { l: 84, r: 78, t: 26, b: 34 };
+    const ih = rows.length * rowH, H = ih + m.t + m.b, iw = W - m.l - m.r;
+    let lo = 0, hi = 0;
+    for (const r of rows) { lo = Math.min(lo, r.all, r.mdl); hi = Math.max(hi, r.fs, r.mdl, r.all); }
+    const T = ticks(lo, hi, 6);
+    lo = Math.min(lo, T[0]); hi = Math.max(hi, T[T.length - 1]);
+    const X = v => m.l + (v - lo) / (hi - lo) * iw;
+
+    const svg = el("svg", { viewBox: "0 0 " + W + " " + H, role: "img",
+      "aria-label": "Profit and loss in euro per corridor over the whole window" });
+    for (const t of T) {
+      svg.append(el("line", { class: t === 0 ? "zero-rule" : "gridline",
+        x1: X(t), x2: X(t), y1: m.t - 8, y2: m.t + ih }));
+      const tx = el("text", { x: X(t), y: m.t - 13, "text-anchor": "middle" });
+      tx.textContent = eurK(t); svg.append(tx);
+    }
+    const bh = 9;
+    rows.forEach((r, i) => {
+      const yc = m.t + i * rowH + rowH / 2;
+      const vals = [["ceil", r.fs], ["all", r.all], ["mdl", r.mdl]];
+      SERIES.forEach((s, j) => {
+        const v = [r.fs, r.all, r.mdl][j];
+        const x0 = X(0), x1 = X(v), y = yc - (bh * 3 + 4) / 2 + j * (bh + 2);
+        const w = Math.abs(x1 - x0);
+        if (w > 0.4) {
+          svg.append(el("path", { d: barPathH(Math.min(x0, x1), y, w, bh, 4, v >= 0), fill: col(s.v) }));
+        }
+      });
+      const nm = el("text", { x: m.l - 12, y: yc + 3.5, "text-anchor": "end", class: "axis" });
+      nm.textContent = r.c; svg.append(nm);
+      const bought = el("text", { x: m.l + iw + 10, y: yc + 3.5, class: "val" });
+      bought.textContent = r.n_won + "/" + r.n + " bought"; svg.append(bought);
+      const hit = el("rect", { x: m.l - 80, y: m.t + i * rowH, width: iw + 150, height: rowH, fill: "transparent" });
+      hit.addEventListener("mousemove", ev => showTip(ev, r.c + " \u00b7 mean clearing " + r.clearing.toFixed(2) + " EUR/MWh", [
+        { c: col("--s-ceil"), l: "Perfect foresight", v: eur(r.fs) },
+        { c: col("--s-all"), l: "Buy everything", v: eur(r.all) },
+        { c: col("--s-model"), l: "Model bid", v: eur(r.mdl) },
+        { l: "bought / offered", v: r.n_won + " / " + r.n },
+      ]));
+      hit.addEventListener("mouseleave", hideTip);
+      svg.append(hit);
+    });
+    const at = el("text", { x: m.l + iw / 2, y: H - 8, "text-anchor": "middle", class: "axis" });
+    at.textContent = "EUR at 1 MW, whole window"; svg.append(at);
+    host.append(svg);
+  }
+  function barPathH(x, y, w, h, r, right) {
+    r = Math.max(0, Math.min(r, h / 2, w));
+    return right
+      ? `M${x},${y}H${x + w - r}q${r},0 ${r},${r}v${h - 2 * r}q0,${r} ${-r},${r}H${x}Z`
+      : `M${x + w},${y}H${x + r}q${-r},0 ${-r},${r}v${h - 2 * r}q0,${r} ${r},${r}H${x + w}Z`;
+  }
+
+  /* ---------- table ---------- */
+  function drawTable() {
+    const t = document.getElementById("tbl");
+    let h = "<thead><tr><th>Delivery</th><th>Hours</th>" +
+      '<th><i class="c-ceil"></i>Foresight</th><th>n</th>' +
+      '<th><i class="c-all"></i>Buy all</th><th>n</th>' +
+      '<th><i class="c-model"></i>Model</th><th>n</th>' +
+      '<th>Model EUR/MWh</th></tr></thead><tbody>';
+    for (const r of D.full) {
+      h += "<tr><td>" + r.m + "</td><td>" + r.hours + "</td>" +
+        '<td>' + eur(r.fs_eur) + "</td><td>" + r.fs_n + "</td>" +
+        '<td>' + eur(r.all_eur) + "</td><td>" + r.all_n + "</td>" +
+        '<td>' + eur(r.mdl_eur) + "</td><td>" + r.mdl_n + "</td>" +
+        "<td>" + (r.mdl_mwh === null ? "\u2014" : (r.mdl_mwh > 0 ? "+" : "\u2212") + Math.abs(r.mdl_mwh).toFixed(2)) + "</td></tr>";
+    }
+    const sum = k => D.full.reduce((a, r) => a + r[k], 0);
+    h += "</tbody><tfoot><tr><td>Total</td><td></td>" +
+      '<td>' + eur(sum("fs_eur")) + "</td><td>" + M.fs_n + "</td>" +
+      '<td>' + eur(sum("all_eur")) + "</td><td>" + M.n + "</td>" +
+      '<td>' + eur(sum("mdl_eur")) + "</td><td>" + M.mdl_n + "</td>" +
+      "<td>+0.36</td></tr></tfoot>";
+    t.innerHTML = h;
+  }
+
+  document.getElementById("foot").innerHTML =
+    "Spot: SK from OKTE <code>/dam/results</code>, neighbours from ENTSO-E day-ahead, hourly UTC across the " +
+    "2025-10-01 quarter-hour switch. Forwards: EEX monthly BASE settlements, decoded through the short codes in " +
+    "<code>plumbing/eex/catalog.md</code>, last close strictly before each gate&rsquo;s day. Auctions: JAO monthly " +
+    "results via <code>plumbing.jao_auctions</code>. Sigma is fitted on 12 monthly means per " +
+    "<code>capacity_class.capa_fit</code>, unmodified. Reproduce with " +
+    "<code>python run_capacity.py bid --window 12</code>. On the won set the mean is +0.36 EUR/MWh at " +
+    "<b>t = +0.68</b>, and the correlation between the model&rsquo;s edge and realised P&amp;L is " +
+    "<b>&minus;0.010</b> &mdash; treat the total as one border&rsquo;s luck until a longer window says otherwise.";
+
+  function drawAll() { drawMonth(); drawCum(); drawCorr(); drawTable(); }
+  drawAll();
+  let rt;
+  addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(drawAll, 140); });
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", drawAll);
+})();
+</script>
