@@ -11,9 +11,10 @@ through `plumbing.jao_auctions.monthly_results` (26 delivery months,
 2024-08 -> 2026-09). If it is absent we re-pull the same thing per corridor.
 Provenance is written to Data/jao_monthly_provenance.txt.
 
-CZ-DE / DE-CZ are deliberately absent: per plumbing/jao_auctions/catalog.md
-those corridors run **no monthly auctions**, so the model can price them but
-there is nothing to bid into.
+`CZ-DE` / `DE-CZ` themselves run no monthly auction, but the German TSO-split
+corridors do - `DE(50Hz)-CZ`, `DE(TenneT)-CZ` and reverses - and they price off
+the same DE_LU zone. They are included; see prep/zones.py for the maintenance
+warning that comes with the 50Hz pair.
 
 Usage
     python prep/build_auctions.py
@@ -27,16 +28,16 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "prep"))
-from zones import PRICEABLE_BORDERS  # noqa: E402
+from zones import CORRIDOR_TO_BORDER  # noqa: E402
 
 SIBLING = ROOT.parent / "capacities" / "data" / "auctions_monthly.parquet"
 OUT = ROOT / "Data" / "jao_monthly.csv"
 
-# our directed border -> JAO corridor. Same direction convention: corridor X-Y
-# is the right to transmit X->Y, worth P(Y) - P(X).
-BORDER_TO_CORRIDOR = {b: b.upper().replace("_", "-") for b in PRICEABLE_BORDERS}
+# Direction convention: corridor X-Y is the right to transmit X->Y, worth
+# P(Y) - P(X). The corridor list is many-to-one onto zone pairs - see
+# prep/zones.py CORRIDOR_TO_BORDER for why the German ones split by TSO.
 
-KEEP = ["corridor", "delivery_month", "product", "auction_price_eur_mwh",
+KEEP = ["corridor", "auction_corridor", "joint_auction", "delivery_month", "product", "auction_price_eur_mwh",
         "offered_mw", "allocated_mw", "requested_mw", "atc_mw",
         "bidder_party_count", "bid_gate_closure", "delivery_start",
         "delivery_stop", "cancelled", "maintenance_hours",
@@ -63,7 +64,7 @@ def from_api(corridors: list[str], months: list[str]) -> tuple[pd.DataFrame, str
 
 
 def main() -> None:
-    corridors = sorted(set(BORDER_TO_CORRIDOR.values()))
+    corridors = sorted(CORRIDOR_TO_BORDER)
     if SIBLING.exists():
         d, prov = from_sibling()
     else:

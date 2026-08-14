@@ -232,8 +232,10 @@
   <header>
     <p class="eyebrow">Capacity-Margrabe &middot; monthly PTR bid rule</p>
     <h1>Does the fair-value bid earn anything the auction wasn&rsquo;t already giving away?</h1>
-    <p class="lede">Every JAO <b>monthly</b> capacity auction on the eight borders this model can
-      price, 2024-08 &rarr; 2026-07. Each right is valued at its own <b>bid gate closure</b> &mdash; a
+    <p class="lede">Every JAO <b>monthly</b> capacity auction on the <b>twelve corridors</b> this model
+      can price &mdash; ten directed zone pairs, with the German-Czech border splitting into four
+      TSO-level instruments &mdash; 2024-08 &rarr; 2026-07. Each right is valued at its own
+      <b>bid gate closure</b> &mdash; a
       median 12 days before delivery starts &mdash; from the Margrabe spread option fitted on the
       12 whole months of day-ahead history before it. We bid the model&rsquo;s fair value and pay
       the clearing price when we win. Plotted against the two references that matter: <b>buying
@@ -247,9 +249,18 @@
       <p>P&amp;L is <b>EUR at 1 MW on each border</b>: <code>(realised value &minus; clearing price) &times; delivery hours</code>.
         Realised value is <code>mean(max(P_to &minus; P_from, 0))</code> over the delivered hours &mdash; a
         non-nominated right is paid the coupling differential under UIOSI, so a negative spread pays 0, not a loss.</p>
-      <p>Three things are deliberately <b>not</b> modelled: we assume a <b>price taker</b> (our bid never moves the
-        clearing price &mdash; plausible at 1 MW against 30-plus-bidder books, unverified); <b>maintenance deratings</b>
-        are ignored; and <code>CZ-DE</code> / <code>DE-CZ</code> are absent because they run no monthly auction at all.</p>
+      <p>One thing is deliberately <b>not</b> modelled: we assume a <b>price taker</b> &mdash; our bid never
+        moves the clearing price. Plausible at 1 MW against 30-plus-bidder books, but unverified.</p>
+      <p><b>Maintenance is not a discount.</b> <code>DE(50Hz)-CZ</code> averages 172 h a month of reduced
+        ATC and its <code>maintenance_min_atc_mw</code> is <b>0</b>, so even 1 MW is physically out &mdash;
+        but under HAR Art 59 a curtailed holder is made whole at the same <code>max(spread, 0)</code> a
+        non-nominated holder receives, and all 7,728 observed curtailment records read
+        <code>Network Security</code>, not force majeure. So value per MWh is not reduced. The residual is
+        the Art 59(2)&ndash;(4) compensation cap, which cuts all holders pro rata and is not quantifiable
+        without JAO&rsquo;s cap figures &mdash; it would bite hardest on exactly these corridors.</p>
+      <p><code>CZ-DE</code> and <code>DE-CZ</code> run no monthly auction under those names, but the
+        TSO-split corridors do and price off the same <code>DE_LU</code> zone. An earlier version of this
+        page dropped them; they turned out to be the largest single source of P&amp;L here.</p>
     </div>
   </div>
 
@@ -257,27 +268,32 @@
 
   <section>
     <h2>Profitability per delivery month</h2>
-    <p class="note">Bars are summed across the eight borders in that month, so a month where the rule
-      buys nothing sits at zero rather than going missing. The ceiling is a bound, not a rival
-      strategy &mdash; it is what the same eight rights were worth to someone who already knew.</p>
+    <p class="note">Bars are summed across the twelve corridors offered in that month, so a month where
+      the rule buys nothing sits at zero rather than going missing. The ceiling is a bound, not a rival
+      strategy &mdash; it is what the same twelve rights were worth to someone who already knew.</p>
     <div class="legend" id="lg1"></div>
     <div class="plot" id="p-month"></div>
   </section>
 
   <section>
     <h2>Cumulative, and where it all comes from</h2>
-    <p class="note">The dashed line is the same rule with <b>DE-AT and AT-DE removed</b>. That pair carries
-      the entire result: strip it and the rule is a loss, and bidding indiscriminately on it was already
-      profitable without any model. The gap between the rule and the ceiling is the honest measure of
-      how much of the available money the fair value actually finds.</p>
+    <p class="note">The dashed line is the same rule with <b>both rich border groups removed</b> &mdash;
+      DE-AT/AT-DE and the four German-Czech corridors. Those two groups carry the entire result: strip
+      them and the rule is a loss, and bidding indiscriminately on either was already profitable
+      without any model. Excluding only DE-AT, as an earlier version of this page did, understates the
+      rule &mdash; the German-Czech corridors are the larger source. The gap between the rule and the
+      ceiling is the honest measure of how much of the available money the fair value actually finds.</p>
     <div class="legend" id="lg2"></div>
     <div class="plot" id="p-cum"></div>
   </section>
 
   <section>
     <h2>Per corridor, whole window</h2>
-    <p class="note">Where the rule beats buying everything, it does so by declining &mdash; not by
-      buying better. Where it loses (<code>SK-HU</code>, <code>CZ-SK</code>) it bought the wrong months.</p>
+    <p class="note">Two groups carry everything: <code>DE-AT</code> and the four German-Czech corridors.
+      Note <code>DE(50Hz)-CZ</code> and <code>DE(TenneT)-CZ</code> clear within a euro of each other on
+      identical prices while one of them is curtailed ~172 h a month &mdash; the auction is not pricing
+      that difference. Where the rule loses (<code>CZ-SK</code>, <code>SK-HU</code>) it bought the wrong
+      months.</p>
     <div class="legend" id="lg3"></div>
     <div class="plot" id="p-corr"></div>
   </section>
@@ -297,9 +313,13 @@
     <div class="plot" id="p-acc"></div>
 
     <h3 class="sub">And what does each bid rule earn?</h3>
-    <p class="note">Cumulative, same auctions, same target. Neither model on its own clears zero.
-      The interesting line is <b>both agree</b> &mdash; buy only where the forward-vol model and the
-      fundamental model independently say the right is worth more than it cleared.</p>
+    <p class="note">Cumulative, same auctions, same target. Both models clear zero on this set and the
+      forward-vol one clears it by 3x, but the interesting line is <b>both agree</b> &mdash; buy only
+      where the forward-vol model and the fundamental model independently say the right is worth more
+      than it cleared. Because JAO is <b>marginal-priced</b>, that is exactly the same thing as
+      submitting one order at the lower of the two fair values: <code>min(a,b) &ge; c</code> if and only
+      if both clear <code>c</code>, and you pay <code>c</code> either way. Verified identical &mdash;
+      same win set, same P&amp;L to the cent.</p>
     <div class="legend" id="lg4"></div>
     <div class="plot" id="p-cmp"></div>
 
@@ -403,7 +423,7 @@ const DATA = __DATA__;
       ["Ceiling captured", cap.toFixed(1) + "%", "", "buy-everything: " + (100 * M.all_total / M.fs_total).toFixed(1) + "%"],
       ["Months in profit", D.full.filter(r => r.mdl_eur > 0).length + " / " + M.months, "", "buy-everything: " +
         D.full.filter(r => r.all_eur > 0).length + " / " + M.months],
-      ["Excl. DE-AT pair", eur(D.ex_deat.reduce((a, r) => a + r.mdl_eur, 0)), "", "the rule without its one winner"],
+      ["Excl. rich groups", eur(D.ex_deat.reduce((a, r) => a + r.mdl_eur, 0)), "", "no DE-AT, no German-Czech"],
     ];
     document.getElementById("kpis").innerHTML = rows.map(([l, v, c, s]) =>
       '<div class="kpi"><span class="lab">' +
@@ -419,7 +439,7 @@ const DATA = __DATA__;
       (s.dash && !s.sq ? ";border-top-style:dashed" : "") + '"></i>' + s.name + "</span>").join("");
   }
   legend("lg1", SERIES.map(s => ({ ...s, sq: true })));
-  legend("lg2", SERIES.concat([{ name: "Model bid, excl. DE-AT pair", v: "--s-model", dash: "4 3" }]));
+  legend("lg2", SERIES.concat([{ name: "Model bid, excl. both rich groups", v: "--s-model", dash: "4 3" }]));
   legend("lg3", SERIES.map(s => ({ ...s, sq: true })));
 
   /* ---------- chart 1: grouped bars per delivery month ---------- */
@@ -524,7 +544,7 @@ const DATA = __DATA__;
         d: L.y.map((v, i) => (i ? "L" : "M") + X(i) + "," + Y(v)).join(" "),
       }));
       const last = L.y[L.y.length - 1];
-      labels.push({ y: Y(last) + 3.5, txt: eur(last) + (L.dashed ? "  (ex DE-AT)" : "") });
+      labels.push({ y: Y(last) + 3.5, txt: eur(last) + (L.dashed ? "  (ex rich)" : "") });
     }
     /* direct end labels - also the relief for the aqua contrast warning */
     for (const lb of declash(labels, 12)) {
@@ -772,12 +792,14 @@ const DATA = __DATA__;
       C.meta.first + " to " + C.meta.last;
     document.getElementById("cmp-caveat").innerHTML =
       "Read the agreement result with the same discount as everything else on this page: " +
-      "<b>t = " + both.t.toFixed(2) + "</b> on " + both.n + " auctions, and with DE-AT/AT-DE removed it is " +
-      "<b>" + eur(both.ex_total) + "</b> over " + both.ex_n + " &mdash; a loss, like every other rule here. " +
-      "What survives the concentration test is only the ordering: ex-DE-AT, agreement loses " +
-      "" + eur(both.ex_total / both.ex_n) + " per auction against " +
-      eur(C.strategies[0].ex_total / C.strategies[0].ex_n) + " for buying everything. " +
-      "On borders with no free money, the best this does is lose less.";
+      "<b>t = " + both.t.toFixed(2) + "</b> on " + both.n + " auctions. With DE-AT/AT-DE removed it is still " +
+      "<b>" + eur(both.ex_total) + "</b> over " + both.ex_n + ". " +
+      "That is the correction to an earlier version of this page: DE-AT alone was NOT the whole story, " +
+      "because the German-Czech corridors are a second and larger source. Remove both groups and it is " +
+      "<b>" + eur(both.ex2_total) + "</b> over " + both.ex2_n + " &mdash; a loss. " +
+      "So the ordering is what survives: on the borders where the auction left nothing, agreement loses " +
+      eur(both.ex2_total / both.ex2_n) + " per auction against " +
+      eur(C.strategies[0].ex2_total / C.strategies[0].ex2_n) + " for buying everything.";
   }
 
   function drawAll() {

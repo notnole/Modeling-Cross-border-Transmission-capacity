@@ -20,7 +20,10 @@ import pandas as pd
 
 HERE = Path(__file__).parent
 OUT = HERE / "outputs"
-DE_AT_PAIR = ["de_at", "at_de"]
+# The two border groups where the auction left money on the table. Excluding
+# BOTH is the honest control: excluding only DE-AT understates the model,
+# because the German-Czech corridors are a second, larger source.
+RICH_BORDERS = ["de_at", "at_de", "de_cz", "cz_de"]
 # the fundamental model's own bid book, for the head-to-head. Its `bid` is the
 # LGBM predicted-value p50 times a calibration factor k.
 CAP_BIDS = HERE.parent / "capacities" / "price_model" / "outputs" / "bids_20260803.csv"
@@ -55,8 +58,9 @@ def compare(s: pd.DataFrame) -> dict | None:
         print(f"skip comparison: {CAP_BIDS} not found")
         return None
     cap = pd.read_csv(CAP_BIDS)
+    # join on the real corridor column: reconstructing it from the zone pair
+    # cannot produce the TSO-split German names (`DE(50Hz)-CZ`).
     m = s.copy()
-    m["corridor"] = m["border"].str.upper().str.replace("_", "-", regex=False)
     j = (cap[["corridor", "month", "clearing", "p50", "bid"]]
          .merge(m[["corridor", "delivery_month", "value", "clearing", "intrinsic",
                    "realised_value", "realised_hours", "pnl_eur"]],
@@ -71,6 +75,7 @@ def compare(s: pd.DataFrame) -> dict | None:
     j["buy_both"] = j["buy_mar"] & j["buy_cap"]
     j["fs"] = j["realised_value"] > j["clearing"]
     ex = ~j["corridor"].isin(["DE-AT", "AT-DE"])
+    ex_both = ex & ~j["corridor"].str.contains(r"DE\(", regex=True)
 
     def tot(mask):
         e = j.loc[mask, "pnl_eur"]
@@ -80,7 +85,9 @@ def compare(s: pd.DataFrame) -> dict | None:
                     t=round(t, 2) if t is not None else None,
                     hit=round(100 * (e > 0).mean(), 1) if len(e) else 0.0,
                     ex_n=int(mask.__and__(ex).sum()),
-                    ex_total=round(j.loc[mask & ex, "pnl_eur"].sum(), 1))
+                    ex_total=round(j.loc[mask & ex, "pnl_eur"].sum(), 1),
+                    ex2_n=int(mask.__and__(ex_both).sum()),
+                    ex2_total=round(j.loc[mask & ex_both, "pnl_eur"].sum(), 1))
 
     strategies = [
         dict(key="all",  name="Buy everything",  v="--s-all",   **tot(pd.Series(True, index=j.index))),
@@ -118,6 +125,8 @@ def compare(s: pd.DataFrame) -> dict | None:
                           last=max(monthly, key=lambda r: r["m"])["m"],
                           ceiling=round(j.loc[j["fs"], "pnl_eur"].sum(), 1),
                           ex_ceiling=round(j.loc[j["fs"] & ex, "pnl_eur"].sum(), 1),
+                          ex2_ceiling=round(j.loc[j["fs"] & ex_both, "pnl_eur"].sum(), 1),
+                          corridor_list=sorted(j["corridor"].unique()),
                           source=CAP_BIDS.name))
 
 
@@ -131,12 +140,12 @@ def main() -> None:
     s["fs"] = s["pnl_mwh"] > 0                  # perfect foresight buys only winners
 
     full = monthly(s)
-    ex = monthly(s[~s["border"].isin(DE_AT_PAIR)])
+    ex = monthly(s[~s["border"].isin(RICH_BORDERS)])
 
     corr = []
-    for bd, g in s.groupby("border"):
+    for bd, g in s.groupby("corridor"):
         corr.append(dict(
-            c=bd.upper().replace("_", "-"), n=len(g), n_won=int(g["won"].sum()),
+            c=bd, n=len(g), n_won=int(g["won"].sum()),
             all=round(g["pnl_eur"].sum(), 1),
             mdl=round(g.loc[g["won"], "pnl_eur"].sum(), 1),
             fs=round(g.loc[g["fs"], "pnl_eur"].sum(), 1),

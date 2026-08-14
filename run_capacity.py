@@ -45,7 +45,7 @@ sys.path.insert(0, str(ROOT / "prep"))
 import Loaders.loader as ld                      # noqa: E402
 import border_class as bc                        # noqa: E402
 import capacity_class as capa                    # noqa: E402
-from zones import PRICEABLE_BORDERS              # noqa: E402
+from zones import PRICEABLE_BORDERS, CORRIDOR_TO_BORDER   # noqa: E402
 
 SPOT_CSV = ROOT / "Data" / "spot_current.csv"
 FWD_CSV = ROOT / "Data" / "fwd_monthly.csv"
@@ -268,8 +268,13 @@ def load_auctions() -> pd.DataFrame:
     a = pd.read_csv(ROOT / "Data" / "jao_monthly.csv",
                     parse_dates=["bid_gate_closure", "delivery_start", "delivery_stop"])
     a["delivery_month"] = pd.PeriodIndex(a["delivery_month"], freq="M")
-    a["border"] = a["corridor"].str.lower().str.replace("-", "_", regex=False)
-    return a
+    # explicit map, not lowercase-and-replace: corridor names carry parentheses
+    # (`DE(50Hz)-CZ`) and several corridors share one pricing zone pair.
+    a["border"] = a["corridor"].map(CORRIDOR_TO_BORDER)
+    unknown = sorted(a.loc[a["border"].isna(), "corridor"].unique())
+    if unknown:
+        print(f"dropping corridors with no zone-pair mapping: {unknown}")
+    return a.dropna(subset=["border"])
 
 
 def price_at_gate(spot, fwd, border, month, gate, window):
@@ -315,9 +320,10 @@ def cmd_bid(args) -> None:
                           a["bid_gate_closure"], args.window)
         if r is None:
             continue
-        r.update(clearing=a["auction_price_eur_mwh"], atc_mw=a["atc_mw"],
-                 allocated_mw=a["allocated_mw"], bidders=a["bidder_party_count"],
-                 maint_hours=a["maintenance_hours"])
+        r.update(corridor=a["corridor"], clearing=a["auction_price_eur_mwh"],
+                 atc_mw=a["atc_mw"], allocated_mw=a["allocated_mw"],
+                 bidders=a["bidder_party_count"], maint_hours=a["maintenance_hours"],
+                 joint=a.get("joint_auction"))
         r.update(realised(spot, a["border"], a["delivery_month"]))
         rows.append(r)
     bids = pd.DataFrame(rows)
@@ -352,7 +358,7 @@ def cmd_bid(args) -> None:
     s = bids.dropna(subset=["clearing", "realised_value"]).copy()
     print(f"\n=== bid rule over {len(s)} cleared auctions "
           f"({s['delivery_month'].min()} -> {s['delivery_month'].max()}, "
-          f"{s['border'].nunique()} corridors)")
+          f"{s['corridor'].nunique()} corridors on {s['border'].nunique()} zone pairs)")
     print("assumes we are a price taker: our bid never moves the clearing price.\n")
     print(f"{'margin':>7} {'win%':>6} {'n_won':>6} {'mean cost':>10} "
           f"{'mean value':>11} {'mean P&L':>9} {'total P&L':>10} {'hit%':>6}")
@@ -400,13 +406,13 @@ def live_board(zones: list[str], year: int, month: int) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def live_auctions(borders: list[str], month: str) -> pd.DataFrame:
+def live_auctions(corridors: list[str], month: str) -> pd.DataFrame:
     from plumbing.jao_auctions import JaoAuctionsClient
 
     c = JaoAuctionsClient()
     rows = []
-    for b in borders:
-        corr = b.upper().replace("_", "-")
+    for corr in corridors:
+        b = CORRIDOR_TO_BORDER[corr]
         try:
             d = c.monthly_results(corr, month)
         except Exception as exc:
@@ -436,7 +442,7 @@ def cmd_sheet(args) -> None:
     if board.empty:
         raise SystemExit("no EEX board")
     print(f"\nJAO monthly auctions for {month}:")
-    auc = live_auctions(PRICEABLE_BORDERS, str(month))
+    auc = live_auctions(sorted(CORRIDOR_TO_BORDER), str(month))
 
     # sigma on whole months only: the gates sit inside the month before
     # delivery, so the last complete month of history is the one before that
@@ -448,26 +454,30 @@ def cmd_sheet(args) -> None:
 
     px = board.set_index("zone")["close"]
     fund = fundamental_view(str(month))
+    # ONE ROW PER AUCTION, not per zone pair: the German TSO-split corridors are
+    # separate instruments with their own gate, ATC and clearing history even
+    # though they share a price zone and therefore a value.
     rows = []
-    for b in PRICEABLE_BORDERS:
+    for corr, b in sorted(CORRIDOR_TO_BORDER.items()):
         z1, z2 = b.split("_")
         cap, n = caps[b]
         if cap is None or z1 not in px or z2 not in px:
             continue
         F1, F2 = float(px[z1]), float(px[z2])
-        a = auc[auc["border"] == b]
-        r = dict(border=b, F_from=F1, F_to=F2, fwd_spread=F2 - F1,
+        a = auc[auc["corridor"] == corr]
+        r = dict(corridor=corr, border=b, F_from=F1, F_to=F2, fwd_spread=F2 - F1,
                  intrinsic=max(F2 - F1, 0.0),
                  sigma=cap.delivery["base"]["sig_mid"],
                  value=cap.capa_price_mid(F1, F2, "base"),
                  delta_to=cap.capa_delta(F1, F2, "base")[1],
                  gate=a["gate"].iloc[0] if len(a) else pd.NaT,
                  atc_mw=a["atc_mw"].iloc[0] if len(a) else np.nan,
+                 maint_hours=a["maint_hours"].iloc[0] if len(a) else np.nan,
                  cleared=(a["clearing"].notna().any() if len(a) else False),
                  auctioned=bool(len(a)))
-        r["fund_p50"] = fund.get(b, {}).get("p50", np.nan)
-        r["fund_bid"] = fund.get(b, {}).get("bid", np.nan)
-        r.update(recent_clearing(b))
+        r["fund_p50"] = fund.get(corr, {}).get("p50", np.nan)
+        r["fund_bid"] = fund.get(corr, {}).get("bid", np.nan)
+        r.update(recent_clearing(corr))
         rows.append(r)
     sheet = pd.DataFrame(rows).sort_values("gate")
     sheet["margrabe_bid"] = (sheet["value"] - args.margin).clip(lower=0).round(2)
@@ -489,7 +499,7 @@ def cmd_sheet(args) -> None:
     show["wins_vs_last"] = np.where(
         show["last_clearing"].isna(), "?",
         np.where(show["agree_bid"] >= show["last_clearing"], "yes", "no"))
-    print(show[["border", "gate", "fwd_spread", "sigma", "value", "margrabe_bid",
+    print(show[["corridor", "gate", "fwd_spread", "sigma", "value", "margrabe_bid",
                 "fund_p50", "fund_bid", "agree_bid", "last_clearing", "clearing_3m",
                 "wins_vs_last", "atc_mw"]].to_string(index=False))
     print("\nagree_bid = min(margrabe, fundamental): the level both models clear.")
@@ -501,7 +511,7 @@ def cmd_sheet(args) -> None:
     print(f"-> {path.relative_to(ROOT)}")
 
 
-def recent_clearing(border: str) -> dict:
+def recent_clearing(corridor: str) -> dict:
     """What this corridor actually cleared at recently — the reference for
     whether a bid will win at all. A fair value is not a bid until you know the
     level it has to beat."""
@@ -509,8 +519,7 @@ def recent_clearing(border: str) -> dict:
     if not path.exists():
         return {}
     d = pd.read_csv(path)
-    corr = border.upper().replace("_", "-")
-    d = (d[(d["corridor"] == corr) & d["auction_price_eur_mwh"].notna()]
+    d = (d[(d["corridor"] == corridor) & d["auction_price_eur_mwh"].notna()]
          .sort_values("delivery_month"))
     if d.empty:
         return {}
@@ -526,11 +535,8 @@ def fundamental_view(month: str) -> dict:
         return {}
     d = pd.read_csv(src)
     d = d[d["month"] == month]
-    out = {}
-    for _, r in d.iterrows():
-        b = r["corridor"].lower().replace("-", "_")
-        out[b] = dict(p50=r["p50"], bid=r["bid"])
-    return out
+    return {r["corridor"]: dict(p50=r["p50"], bid=r["bid"])
+            for _, r in d.iterrows()}
 
 
 def main() -> None:

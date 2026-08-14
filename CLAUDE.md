@@ -178,6 +178,56 @@ bid never moves the clearing price — plausible at small MW against
 derating the `capacities` project models), and 24 delivery months on 8 corridors
 is a small sample with P&L correlated across corridors within a month.
 
+## Corrections logged 2026-08-14 (later in the day)
+
+Three things an earlier version of this file got wrong. All three changed a
+conclusion, so they are recorded rather than quietly edited away.
+
+**1. `CZ-DE` / `DE-CZ` are biddable after all — through four TSO-split
+corridors.** `plumbing/jao_auctions/catalog.md` says no monthly auction runs on
+the corridors *named* `CZ-DE` / `DE-CZ`, which is true and which I read as "that
+border is not biddable". It is: `DE(50Hz)-CZ`, `DE(TenneT)-CZ`, `CZ-DE(50Hz)`,
+`CZ-DE(TenneT)` each run 26 monthly auctions, and `DE`, `DE(50Hz)` and
+`DE(TenneT)` are all the **same price zone** (`DE_LU`) — so they share the `cz`
+/ `de` forwards and one fitted sigma, and differ only in gate, ATC and
+availability. `prep/zones.py::CORRIDOR_TO_BORDER` is now the many-to-one map;
+corridor is the auction instrument, border is the pricing key. Never rebuild a
+corridor name by upper-casing a border again — the parentheses make it fail
+silently.
+
+The consequence is not cosmetic: **12 corridors instead of 8**, and the German
+pair turns out to be the *largest* source of P&L in the whole study
+(bid-everything +471/auction over 98). Bid-everything over all 12 flips from
+−0.03 to **+0.19 EUR/MWh**.
+
+**2. "DE-AT carries the entire result" was wrong.** There are two rich groups,
+not one. Ex-DE-AT the agreement rule is now **+3,151** (it was −9,862 on the
+8-corridor set). Removing *both* DE-AT and the German-Czech corridors is the
+honest control, and there it is −9,862. So: two profitable border groups, and on
+everything else the model still adds nothing.
+
+**3. Maintenance is not a discount, and my first note about it was wrong.**
+`DE(50Hz)-CZ` averages 172 h/month of reduced ATC with
+`maintenance_min_atc_mw = 0` — a 1 MW holder is physically out, up to 694 h in
+one month. That does **not** reduce realised value per MWh: under HAR Art 59 a
+curtailed holder is made whole at the same `max(spread, 0)` a non-nominated
+holder receives, and the catalog is explicit that it "must not be reduced for
+it". All 7,728 observed curtailment records read `Network Security` (Art 59);
+force majeure (Art 60) *would* change it — there you get the clearing price back
+and the margin is 0. The live residual is the Art 59(2)–(4) compensation cap,
+which cuts holders pro rata and is unquantifiable without JAO's cap figures.
+Note the market seems not to price the difference at all: `DE(50Hz)-CZ` and
+`DE(TenneT)-CZ` clear within ~1 EUR of each other on identical prices while one
+is curtailed ~172 h/month and the other ~0.
+
+**And an answered question: yes, the "both agree" backtest IS the
+lower-of-the-two-bids strategy.** JAO monthly auctions are marginal-priced, so
+`min(a, b) >= c` if and only if both `a >= c` and `b >= c`, and you pay `c`
+either way. Verified: identical win set (49 of 49) and identical P&L
+(+16,104.7) on the 8-corridor set. The equivalence depends on marginal pricing —
+under pay-as-bid the same win set would have earned **−12,320** instead, because
+the entire result is the gap between the bid and the clearing price.
+
 ## Head-to-head with the fundamental model (`projects/capacities`)
 
 `build_chart.py::compare()` joins this project's bid book to
