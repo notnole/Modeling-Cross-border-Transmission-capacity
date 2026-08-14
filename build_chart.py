@@ -102,6 +102,39 @@ def compare(s: pd.DataFrame) -> dict | None:
         accuracy.append(dict(name=name, me=round(e.mean(), 2), mae=round(e.abs().mean(), 2),
                              corr=round(j[c].corr(j["realised_value"]), 3)))
 
+    # min / mean / max of the two fair values. Because JAO is marginal-priced
+    # the bid level only selects the win set, and these three are NESTED:
+    # lower subset average subset max. So the marginal auction each relaxation
+    # admits can be priced on its own.
+    j["lo"] = j[["value", "bid"]].min(axis=1)
+    j["avg"] = j[["value", "bid"]].mean(axis=1)
+    j["hi"] = j[["value", "bid"]].max(axis=1)
+    rules = []
+    for name, mask, note in (
+            ("Buy everything", pd.Series(True, index=j.index), "accept any price"),
+            ("MAX of the two", j["hi"] >= j["clearing"], "either model clears"),
+            ("Fundamental alone", j["buy_cap"], "its bid clears"),
+            ("AVERAGE of the two", j["avg"] >= j["clearing"], "the average clears"),
+            ("Margrabe alone", j["buy_mar"], "its value clears"),
+            ("LOWER of the two", j["lo"] >= j["clearing"], "both models clear"),
+            ("Perfect foresight", j["fs"], "the ceiling")):
+        e = j.loc[mask, "pnl_eur"]
+        t = (e.mean() / (e.std(ddof=1) / np.sqrt(len(e)))) if len(e) > 1 else None
+        rules.append(dict(name=name, note=note, n=int(len(e)),
+                          total=round(e.sum(), 1), mean=round(e.mean(), 1),
+                          t=round(t, 2) if t is not None else None,
+                          hit=round(100 * (e > 0).mean(), 1),
+                          ex_n=int((mask & ex_both).sum()),
+                          ex_mean=round(j.loc[mask & ex_both, "pnl_eur"].mean(), 1)
+                          if (mask & ex_both).any() else None))
+    marg = []
+    for name, inner, outer in (("average, beyond lower", j["lo"] >= j["clearing"], j["avg"] >= j["clearing"]),
+                               ("max, beyond average", j["avg"] >= j["clearing"], j["hi"] >= j["clearing"])):
+        e = j.loc[outer & ~inner, "pnl_eur"]
+        marg.append(dict(name=name, n=int(len(e)),
+                         total=round(e.sum(), 1), mean=round(e.mean(), 1) if len(e) else None,
+                         hit=round(100 * (e > 0).mean(), 1) if len(e) else None))
+
     monthly = []
     for mo, g in j.groupby("delivery_month"):
         monthly.append(dict(m=mo,
@@ -119,6 +152,7 @@ def compare(s: pd.DataFrame) -> dict | None:
                                total=round(e.sum(), 1) if len(e) else 0.0))
 
     return dict(strategies=strategies, accuracy=accuracy, monthly=monthly, matrix=matrix,
+                rules=rules, marginal=marg,
                 meta=dict(n=len(j), months=int(j["delivery_month"].nunique()),
                           corridors=int(j["corridor"].nunique()),
                           first=min(monthly, key=lambda r: r["m"])["m"],
@@ -153,7 +187,9 @@ def main() -> None:
 
     data = dict(
         full=full, ex_deat=ex, corridors=corr, compare=compare(s),
-        meta=dict(n=len(s), months=len(full), corridors=int(s["border"].nunique()),
+        meta=dict(n=len(s), months=len(full),
+                  corridors=int(s["corridor"].nunique()),
+                  zone_pairs=int(s["border"].nunique()),
                   first=full[0]["m"], last=full[-1]["m"],
                   all_total=round(s["pnl_eur"].sum(), 1),
                   mdl_total=round(s.loc[s["won"], "pnl_eur"].sum(), 1),

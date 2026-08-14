@@ -47,6 +47,11 @@ PRICEABLE_BORDERS = [
     "cz_de", "de_cz",
     "at_de", "de_at",
     "hu_ro", "ro_hu",
+    # free: at/cz/hu are already in the spot panel and the forward workbook, so
+    # these four cost nothing but a map entry. AT-HU is the fundamental model's
+    # rank-4 tier-A pick for 2026-09, so leaving it out was a real miss.
+    "at_cz", "cz_at",
+    "at_hu", "hu_at",
 ]
 
 # JAO auction corridor -> the zone pair that prices it. This is a MANY-TO-ONE
@@ -73,6 +78,8 @@ CORRIDOR_TO_BORDER = {
     "SK-CZ": "sk_cz", "CZ-SK": "cz_sk",
     "AT-DE": "at_de", "DE-AT": "de_at",
     "HU-RO": "hu_ro", "RO-HU": "ro_hu",
+    "AT-CZ": "at_cz", "CZ-AT": "cz_at",
+    "AT-HU": "at_hu", "HU-AT": "hu_at",
     "DE(50Hz)-CZ": "de_cz", "DE(TenneT)-CZ": "de_cz",
     "CZ-DE(50Hz)": "cz_de", "CZ-DE(TenneT)": "cz_de",
 }

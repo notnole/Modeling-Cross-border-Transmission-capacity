@@ -178,6 +178,79 @@ bid never moves the clearing price — plausible at small MW against
 derating the `capacities` project models), and 24 delivery months on 8 corridors
 is a small sample with P&L correlated across corridors within a month.
 
+## Lower vs average vs max of the two fair values
+
+Marginal pricing means the bid level only selects the **win set**, so the three
+combinations are **nested**: `lower ⊆ average ⊆ max`. That makes each relaxation
+testable on the auctions it *adds*. 288 auctions, 16 corridors, 2025-02 → 2026-07:
+
+| rule | buys | n | total EUR | per auction | t | hit% |
+|---|---|---|---|---|---|---|
+| Buy everything | any price | 288 | −83,460 | −290 | −1.73 | 37.2 |
+| MAX of the two | either clears | 204 | −27,971 | −137 | −0.67 | 42.2 |
+| Fundamental alone | its bid clears | 181 | −15,665 | −86 | −0.40 | 42.0 |
+| AVERAGE of the two | the average clears | 163 | +4,063 | +25 | +0.11 | 44.2 |
+| Margrabe alone | its value clears | 101 | +2,316 | +23 | +0.07 | 51.5 |
+| **LOWER of the two** | **both clear** | **78** | **+14,621** | **+187** | **+0.49** | **53.8** |
+| Perfect foresight | the ceiling | 107 | +233,268 | +2,180 | +8.92 | 100 |
+
+**LOWER dominates on every metric** — total, per-auction, t and hit rate — and the
+nesting says why: every relaxation buys strictly worse auctions.
+
+| the marginal auctions a looser rule admits | n | total | per auction | hit% |
+|---|---|---|---|---|
+| average, beyond lower | 85 | −10,558 | −124 | 35.3 |
+| max, beyond average | 41 | −32,033 | −781 | 34.1 |
+
+So MAX is the worst of the three and only slightly better than bidding blind:
+"either model likes it" is close to "someone had an opinion". AVERAGE lands
+between, as arithmetic requires, and its extra 85 auctions lose 124 each.
+Ordering the whole list by per-auction P&L reproduces exactly the strictness
+ordering, which is the strongest form of the finding: **on this book, tightening
+the agreement requirement monotonically improves the outcome, and there is no
+interior optimum to tune.** Sample sizes shrink fast, though — LOWER is 78
+auctions at t = +0.49, so "best of the three" is not "established".
+
+## Extending to the fundamental model's other countries
+
+Cheap mechanically, and **not free in expectation**. Measured 2026-08-14:
+
+| tier | corridors | what it needs |
+|---|---|---|
+| wired now | 16 | — |
+| free today | +0 | already done: AT-CZ/CZ-AT/AT-HU/HU-AT cost only a map entry |
+| backtestable now | 24 | ENTSO-E spot for `fr gr it nl`; the workbook already has their monthly forward history |
+| live-priceable now | 44 | all 14 EEX zones are listed; **all 14 confirmed** to return a Month/Base settlement |
+| backtestable from 2026-06-19 | 44 | `data/eex/monthly_forwards.parquet`, the local daily collection |
+
+44 of the 106 monthly-auction corridors (**1,149 openings, 363k MW-months**) are
+reachable with the fundamental model's 14 zones — up from 16 today.
+
+**The binding constraint is forward history, not zone coverage.** EEX's endpoint
+only serves the last ~33 trading days, so a live board is available for all 14
+zones but a 2024-08 → 2026-07 backtest is not. Monthly history exists only in the
+`FORWARD_PRODUCTS.xlsx` export (10 zones: `at cz de fr gr hu it nl ro sk`) and in
+the local daily cache from 2026-06-19. So `be bg hr pl si` — and therefore 24 of
+the 28 new corridors — can be **priced live but not validated**. The cache fixes
+that with time: 38 of its 39 days are complete across all 14 areas and 8 delivery
+months. It is currently missing 2026-08-12 (1 area only) and 2026-08-13 entirely
+— the collection job needs a look.
+
+Liquidity is the other filter. Sep-2026 open interest: DE 278,853 / FR 86,930 /
+HU 14,068 / NL 11,818, then BE 3,433 / AT 2,845 / CZ 2,191 / GR 1,359 / RO 1,101
+/ BG 689 / SK 482 / SI 378, and **HR 202 and PL 12 with no volume at all**. A
+settlement on a 12-lot contract is a mark, not a price.
+
+**What the four free corridors actually cost.** Adding AT-CZ/CZ-AT/AT-HU/HU-AT
+needed no new data and took two minutes — and lost money: −26,581 on the rule
+(−1,108/auction, t = −1.28), taking the whole book from +676/auction (t = +1.88)
+to +317 (t = +0.93). Almost all of it is **AT-HU: −37,229**, the corridor with the
+highest mean clearing (15.1) and the model's worst fit (MAE 6.6, overprices by
+1.1) — and the fundamental model's own tier-A rank-4 pick. CZ-AT was the only
+good one (+11,874). Conclusion: extension is a per-corridor decision with its own
+validation, never a switch to flip. Turn a corridor on only after it has a
+backtest of its own.
+
 ## Corrections logged 2026-08-14 (later in the day)
 
 Three things an earlier version of this file got wrong. All three changed a

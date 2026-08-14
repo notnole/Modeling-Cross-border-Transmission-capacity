@@ -206,6 +206,9 @@
   }
   .mtx .cell span { color: var(--ink-2); font-size: 11.5px; }
   .mtx .cell.hi { background: var(--wash); }
+  #rules tbody tr.hi { background: var(--wash); }
+  #rules tbody tr.hi td:first-child { color: var(--ink); font-weight: 600; }
+  #rules tfoot td { font-weight: 400; color: var(--ink-2); }
 
   .tip {
     position: fixed; z-index: 9; pointer-events: none; opacity: 0;
@@ -232,9 +235,9 @@
   <header>
     <p class="eyebrow">Capacity-Margrabe &middot; monthly PTR bid rule</p>
     <h1>Does the fair-value bid earn anything the auction wasn&rsquo;t already giving away?</h1>
-    <p class="lede">Every JAO <b>monthly</b> capacity auction on the <b>twelve corridors</b> this model
-      can price &mdash; ten directed zone pairs, with the German-Czech border splitting into four
-      TSO-level instruments &mdash; 2024-08 &rarr; 2026-07. Each right is valued at its own
+    <p class="lede">Every JAO <b>monthly</b> capacity auction on the <b><span id="n-corr">&mdash;</span> corridors</b> this model
+      can price &mdash; <span id="n-zp">&mdash;</span> directed zone pairs, with the German-Czech border
+      splitting into four TSO-level instruments &mdash; 2024-08 &rarr; 2026-07. Each right is valued at its own
       <b>bid gate closure</b> &mdash; a
       median 12 days before delivery starts &mdash; from the Margrabe spread option fitted on the
       12 whole months of day-ahead history before it. We bid the model&rsquo;s fair value and pay
@@ -268,9 +271,9 @@
 
   <section>
     <h2>Profitability per delivery month</h2>
-    <p class="note">Bars are summed across the twelve corridors offered in that month, so a month where
+    <p class="note">Bars are summed across the corridors offered in that month, so a month where
       the rule buys nothing sits at zero rather than going missing. The ceiling is a bound, not a rival
-      strategy &mdash; it is what the same twelve rights were worth to someone who already knew.</p>
+      strategy &mdash; it is what the same rights were worth to someone who already knew.</p>
     <div class="legend" id="lg1"></div>
     <div class="plot" id="p-month"></div>
   </section>
@@ -322,6 +325,13 @@
       same win set, same P&amp;L to the cent.</p>
     <div class="legend" id="lg4"></div>
     <div class="plot" id="p-cmp"></div>
+
+    <h3 class="sub">Lower, average, or max of the two fair values?</h3>
+    <p class="note">Marginal pricing means the bid level does nothing except select the win set, so these
+      three rules are <b>nested</b>: everything the lower bid buys, the average buys, and everything the
+      average buys, the max buys. That makes each relaxation testable on its own terms &mdash; the bottom
+      two rows price only the auctions a looser rule <i>adds</i>.</p>
+    <div class="tablewrap"><table id="rules"></table></div>
 
     <h3 class="sub">Where the money is: agreement, not either model</h3>
     <p class="note">Mean P&amp;L per auction in each cell of the 2&times;2. Disagreement is the signal
@@ -656,6 +666,9 @@ const DATA = __DATA__;
     t.innerHTML = h;
   }
 
+  document.getElementById("n-corr").textContent = M.corridors;
+  document.getElementById("n-zp").textContent = M.zone_pairs;
+
   document.getElementById("foot").innerHTML =
     "Spot: SK from OKTE <code>/dam/results</code>, neighbours from ENTSO-E day-ahead, hourly UTC across the " +
     "2025-10-01 quarter-hour switch. Forwards: EEX monthly BASE settlements, decoded through the short codes in " +
@@ -776,6 +789,27 @@ const DATA = __DATA__;
     host.append(svg);
   }
 
+  function drawRules() {
+    const t = document.getElementById("rules");
+    let h = "<thead><tr><th>Bid rule</th><th>Buys</th><th>n</th><th>Total EUR</th>" +
+      "<th>Per auction</th><th>t</th><th>Hit%</th><th>Per auction, ex rich</th></tr></thead><tbody>";
+    for (const r of C.rules) {
+      const hi = r.name.startsWith("LOWER") ? ' class="hi"' : "";
+      h += "<tr" + hi + "><td>" + r.name + "</td><td>" + r.note + "</td><td>" + r.n + "</td><td>" +
+        eur(r.total) + "</td><td>" + eur(r.mean) + "</td><td>" +
+        (r.t === null ? "\u2014" : (r.t >= 0 ? "+" : "\u2212") + Math.abs(r.t).toFixed(2)) +
+        "</td><td>" + r.hit.toFixed(1) + "</td><td>" +
+        (r.ex_mean === null ? "\u2014" : eur(r.ex_mean)) + "</td></tr>";
+    }
+    h += "</tbody><tfoot>";
+    for (const m of C.marginal) {
+      h += "<tr><td>only what " + m.name + "</td><td>the marginal auctions</td><td>" + m.n +
+        "</td><td>" + eur(m.total) + "</td><td>" + eur(m.mean) + "</td><td>\u2014</td><td>" +
+        m.hit.toFixed(1) + "</td><td>\u2014</td></tr>";
+    }
+    t.innerHTML = h + "</tfoot>";
+  }
+
   function drawMatrix() {
     const cell = (mar, cap) => C.matrix.find(r => r.mar === mar && r.cap === cap);
     const box = (r, hi) => '<div class="cell' + (hi ? " hi" : "") + '"><b>' +
@@ -807,7 +841,7 @@ const DATA = __DATA__;
     if (C) {
       document.getElementById("s-cmp").hidden = false;
       legend("lg4", CMP);
-      drawAcc(); drawCmp(); drawMatrix();
+      drawAcc(); drawCmp(); drawRules(); drawMatrix();
     }
   }
   drawAll();
