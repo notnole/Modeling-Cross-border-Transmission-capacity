@@ -372,9 +372,175 @@ def cmd_bid(args) -> None:
     print(f"-> {(OUT / f'bids_w{args.window}.csv').relative_to(ROOT)}")
 
 
+# --------------------------------------------------------------------------
+# sheet: decision sheet for one UPCOMING delivery month. Unlike `bid`, which
+# replays cleared auctions from CSV, this pulls the live board and the live
+# auction envelope, so it is the thing you actually act on before a gate.
+# --------------------------------------------------------------------------
+EEX_ZONE = {"sk": "SK", "cz": "CZ", "hu": "HU", "at": "AT", "de": "DE", "ro": "RO"}
+
+
+def live_board(zones: list[str], year: int, month: int) -> pd.DataFrame:
+    """Fresh EEX monthly BASE settlements. Serialised inside plumbing.eex (429s
+    are hard; the catalog says never parallelise)."""
+    from plumbing import eex
+
+    rows = []
+    for z in zones:
+        r = eex.month_settlement(EEX_ZONE[z], year, month)
+        if r is None:
+            print(f"  {z}: not listed")
+            continue
+        rows.append(dict(zone=z, close=r["settle"], trade_date=r["trade_date"],
+                         traded=r["traded"], open_interest=r["open_interest"],
+                         currency=r["currency"], short_code=r["short_code"]))
+        print(f"  {z}: {r['settle']:.2f} {r['currency']} "
+              f"(trade date {r['trade_date']}, OI {r['open_interest']:.0f}, "
+              f"{'traded' if r['traded'] else 'no volume'})", flush=True)
+    return pd.DataFrame(rows)
+
+
+def live_auctions(borders: list[str], month: str) -> pd.DataFrame:
+    from plumbing.jao_auctions import JaoAuctionsClient
+
+    c = JaoAuctionsClient()
+    rows = []
+    for b in borders:
+        corr = b.upper().replace("_", "-")
+        try:
+            d = c.monthly_results(corr, month)
+        except Exception as exc:
+            print(f"  {corr}: {type(exc).__name__} {exc}"[:110])
+            continue
+        if d.empty:
+            continue
+        if "product" in d:
+            d = d[d["product"] == "BASE------"]
+        for _, r in d.iterrows():
+            rows.append(dict(border=b, corridor=corr,
+                             gate=pd.Timestamp(r["bid_gate_closure"]),
+                             clearing=r.get("auction_price_eur_mwh"),
+                             atc_mw=r.get("atc_mw"),
+                             maint_hours=r.get("maintenance_hours")))
+    return pd.DataFrame(rows)
+
+
+def cmd_sheet(args) -> None:
+    month = pd.Period(args.delivery, "M")
+    spot = install_cached_spot_loader()
+    zones = sorted({z for b in PRICEABLE_BORDERS for z in b.split("_")}
+                   & set(EEX_ZONE))
+
+    print(f"EEX monthly BASE board for {month}:")
+    board = live_board(zones, month.year, month.month)
+    if board.empty:
+        raise SystemExit("no EEX board")
+    print(f"\nJAO monthly auctions for {month}:")
+    auc = live_auctions(PRICEABLE_BORDERS, str(month))
+
+    # sigma on whole months only: the gates sit inside the month before
+    # delivery, so the last complete month of history is the one before that
+    gate_min = auc["gate"].min() if not auc.empty else month.start_time.tz_localize("UTC")
+    start, end = window_bounds(gate_min.tz_convert(None), args.window)
+    print(f"\nsigma window {start.date()} -> {end.date()} ({args.window} whole months, base)"
+          f"   [earliest gate {gate_min:%Y-%m-%d %H:%M} UTC]")
+    caps = fit_sigmas(PRICEABLE_BORDERS, start.to_pydatetime(), end.to_pydatetime())
+
+    px = board.set_index("zone")["close"]
+    fund = fundamental_view(str(month))
+    rows = []
+    for b in PRICEABLE_BORDERS:
+        z1, z2 = b.split("_")
+        cap, n = caps[b]
+        if cap is None or z1 not in px or z2 not in px:
+            continue
+        F1, F2 = float(px[z1]), float(px[z2])
+        a = auc[auc["border"] == b]
+        r = dict(border=b, F_from=F1, F_to=F2, fwd_spread=F2 - F1,
+                 intrinsic=max(F2 - F1, 0.0),
+                 sigma=cap.delivery["base"]["sig_mid"],
+                 value=cap.capa_price_mid(F1, F2, "base"),
+                 delta_to=cap.capa_delta(F1, F2, "base")[1],
+                 gate=a["gate"].iloc[0] if len(a) else pd.NaT,
+                 atc_mw=a["atc_mw"].iloc[0] if len(a) else np.nan,
+                 cleared=(a["clearing"].notna().any() if len(a) else False),
+                 auctioned=bool(len(a)))
+        r["fund_p50"] = fund.get(b, {}).get("p50", np.nan)
+        r["fund_bid"] = fund.get(b, {}).get("bid", np.nan)
+        r.update(recent_clearing(b))
+        rows.append(r)
+    sheet = pd.DataFrame(rows).sort_values("gate")
+    sheet["margrabe_bid"] = (sheet["value"] - args.margin).clip(lower=0).round(2)
+    sheet["both_ok"] = sheet["fund_bid"].notna() & (
+        np.sign(sheet["margrabe_bid"]) > 0) & (sheet["fund_bid"] > 0)
+    sheet["agree_bid"] = sheet[["margrabe_bid", "fund_bid"]].min(axis=1).round(2)
+
+    OUT.mkdir(exist_ok=True)
+    stamp = board["trade_date"].max()
+    path = OUT / f"sheet_{month}_{stamp}.csv"
+    sheet.to_csv(path, index=False)
+
+    show = sheet.copy()
+    show["gate"] = show["gate"].dt.strftime("%m-%d %H:%M")
+    for c in ("F_from", "F_to", "fwd_spread", "value", "fund_p50", "fund_bid"):
+        show[c] = show[c].round(2)
+    show["sigma"] = show["sigma"].round(4)
+    print(f"\n=== {month} decision sheet   board {stamp}   margin {args.margin:.2f}\n")
+    show["wins_vs_last"] = np.where(
+        show["last_clearing"].isna(), "?",
+        np.where(show["agree_bid"] >= show["last_clearing"], "yes", "no"))
+    print(show[["border", "gate", "fwd_spread", "sigma", "value", "margrabe_bid",
+                "fund_p50", "fund_bid", "agree_bid", "last_clearing", "clearing_3m",
+                "wins_vs_last", "atc_mw"]].to_string(index=False))
+    print("\nagree_bid = min(margrabe, fundamental): the level both models clear.")
+    print("wins_vs_last compares agree_bid to the most recent CLEARED month "
+          "- a reference for whether the bid is even in the money, not a "
+          "forecast of this auction's clearing price.")
+    print("Blank fundamental = corridor/month absent from its bid book; "
+          "NaN gate = no monthly auction on that corridor.")
+    print(f"-> {path.relative_to(ROOT)}")
+
+
+def recent_clearing(border: str) -> dict:
+    """What this corridor actually cleared at recently — the reference for
+    whether a bid will win at all. A fair value is not a bid until you know the
+    level it has to beat."""
+    path = ROOT / "Data" / "jao_monthly.csv"
+    if not path.exists():
+        return {}
+    d = pd.read_csv(path)
+    corr = border.upper().replace("_", "-")
+    d = (d[(d["corridor"] == corr) & d["auction_price_eur_mwh"].notna()]
+         .sort_values("delivery_month"))
+    if d.empty:
+        return {}
+    return dict(last_month=d["delivery_month"].iloc[-1],
+                last_clearing=round(float(d["auction_price_eur_mwh"].iloc[-1]), 2),
+                clearing_3m=round(float(d["auction_price_eur_mwh"].tail(3).mean()), 2))
+
+
+def fundamental_view(month: str) -> dict:
+    """The sibling fundamental model's p50 / bid for this delivery month."""
+    src = ROOT.parent / "capacities" / "price_model" / "outputs" / "bids_20260803.csv"
+    if not src.exists():
+        return {}
+    d = pd.read_csv(src)
+    d = d[d["month"] == month]
+    out = {}
+    for _, r in d.iterrows():
+        b = r["corridor"].lower().replace("-", "_")
+        out[b] = dict(p50=r["p50"], bid=r["bid"])
+    return out
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="mode", required=True)
+    sh = sub.add_parser("sheet")
+    sh.add_argument("--delivery", required=True, help="upcoming delivery month YYYY-MM")
+    sh.add_argument("--window", type=int, default=12)
+    sh.add_argument("--margin", type=float, default=0.0)
+    sh.set_defaults(func=cmd_sheet)
     d = sub.add_parser("bid")
     d.add_argument("--window", type=int, default=12)
     d.add_argument("--delivery", default=None, help="delivery month YYYY-MM")
