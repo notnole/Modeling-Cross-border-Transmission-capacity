@@ -1,4 +1,4 @@
-<title>Margrabe Bid Ledger</title>
+<title>The Agreement Bid</title>
 <style>
   :root {
     color-scheme: light;
@@ -9,11 +9,11 @@
     --muted:      #898781;
     --grid:       #e1e0d9;
     --hairline:   rgba(11,11,11,0.10);
-    --s-model:    #2a78d6;
+    --s-agree:    #2a78d6;
     --s-all:      #eb6834;
     --s-ceil:     #1baf7a;
     --s-cap:      #eda100;
-    --s-both:     #4a3aa7;
+    --s-mar:      #4a3aa7;
     --wash:       rgba(42,120,214,0.07);
     --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     --mono: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
@@ -28,11 +28,11 @@
       --muted:    #898781;
       --grid:     #2c2c2a;
       --hairline: rgba(255,255,255,0.10);
-      --s-model:  #3987e5;
+      --s-agree:  #3987e5;
       --s-all:    #d95926;
       --s-ceil:   #199e70;
       --s-cap:    #c98500;
-      --s-both:   #9085e9;
+      --s-mar:    #9085e9;
       --wash:     rgba(57,135,229,0.10);
     }
   }
@@ -45,11 +45,11 @@
     --muted:    #898781;
     --grid:     #2c2c2a;
     --hairline: rgba(255,255,255,0.10);
-    --s-model:  #3987e5;
+    --s-agree:  #3987e5;
     --s-all:    #d95926;
     --s-ceil:   #199e70;
     --s-cap:    #c98500;
-    --s-both:   #9085e9;
+    --s-mar:    #9085e9;
     --wash:     rgba(57,135,229,0.10);
   }
 
@@ -69,7 +69,7 @@
     padding: 40px 24px 72px;
     display: flex;
     flex-direction: column;
-    gap: 30px;
+    gap: 32px;
   }
   .eyebrow {
     font-family: var(--mono);
@@ -80,30 +80,37 @@
     margin: 0;
   }
   h1 {
-    font-size: clamp(25px, 3.4vw, 35px);
-    line-height: 1.14;
-    letter-spacing: -0.018em;
+    font-size: clamp(26px, 3.6vw, 38px);
+    line-height: 1.12;
+    letter-spacing: -0.02em;
     font-weight: 600;
     margin: 8px 0 0;
     text-wrap: balance;
   }
-  .lede { margin: 12px 0 0; max-width: 68ch; color: var(--ink-2); font-size: 15.5px; }
+  .lede { margin: 14px 0 0; max-width: 68ch; color: var(--ink-2); font-size: 15.5px; }
   .lede b { color: var(--ink); font-weight: 600; }
-  header { border-bottom: 1px solid var(--hairline); padding-bottom: 26px; }
+  header { border-bottom: 1px solid var(--hairline); padding-bottom: 28px; }
+
+  .rule-def {
+    font-family: var(--mono); font-size: 13.5px; color: var(--ink);
+    background: var(--wash); border-left: 2px solid var(--s-agree);
+    padding: 12px 16px; margin: 16px 0 0; max-width: 68ch;
+  }
 
   .scope {
     display: flex; gap: 14px; align-items: flex-start;
-    background: var(--wash);
-    border-left: 2px solid var(--s-model);
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-left: 2px solid var(--muted);
     padding: 14px 18px;
     font-size: 13.5px;
     color: var(--ink-2);
   }
   .scope p { margin: 0; }
-  .scope p + p { margin-top: 7px; }
+  .scope p + p { margin-top: 8px; }
   .scope .k {
     font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em;
-    text-transform: uppercase; color: var(--s-model); white-space: nowrap;
+    text-transform: uppercase; color: var(--muted); white-space: nowrap;
     padding-top: 2px; font-weight: 600;
   }
   code { font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
@@ -116,36 +123,28 @@
     border: 1px solid var(--hairline);
   }
   .kpi { background: var(--surface); padding: 15px 17px 16px; }
+  .kpi.lead { background: var(--wash); }
   .kpi .lab {
     font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.09em;
     text-transform: uppercase; color: var(--muted); display: block;
+  }
+  .kpi .lab i {
+    width: 9px; height: 9px; border-radius: 2px; display: inline-block;
+    margin-right: 6px; vertical-align: -1px;
   }
   .kpi .val {
     font-family: var(--mono); font-size: 24px; font-variant-numeric: tabular-nums;
     letter-spacing: -0.01em; margin-top: 7px; display: block; line-height: 1.1;
   }
   .kpi .sub { font-size: 12px; color: var(--ink-2); margin-top: 5px; display: block; }
-  .kpi .lab i {
-    width: 9px; height: 9px; border-radius: 2px; display: inline-block;
-    margin-right: 6px; vertical-align: -1px;
-  }
 
   section { display: flex; flex-direction: column; gap: 14px; }
   h2 {
-    font-size: 17px; font-weight: 600; margin: 0;
-    letter-spacing: -0.008em;
-  }
-  .win {
-    font-family: var(--mono); font-size: 11px; font-weight: 400;
-    letter-spacing: 0.04em; color: var(--muted); margin-left: 8px;
-    white-space: nowrap;
+    font-size: 18px; font-weight: 600; margin: 0;
+    letter-spacing: -0.01em;
   }
   .note { margin: 0; font-size: 13.5px; color: var(--ink-2); max-width: 78ch; }
-  h3.sub {
-    font-family: var(--mono); font-size: 11px; letter-spacing: 0.11em;
-    text-transform: uppercase; color: var(--muted); font-weight: 600;
-    margin: 12px 0 -4px;
-  }
+  .note b { color: var(--ink); }
   .plot {
     background: var(--surface);
     border: 1px solid var(--hairline);
@@ -171,7 +170,6 @@
   .gridline { stroke: var(--grid); stroke-width: 1; }
   .zero-rule { stroke: var(--ink-2); stroke-width: 1.25; }
   .series-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
-  .bar-gap { stroke: var(--surface); stroke-width: 2; }
 
   table { border-collapse: collapse; width: 100%; font-size: 13px; }
   .tablewrap { overflow-x: auto; border: 1px solid var(--hairline); background: var(--surface); }
@@ -188,12 +186,13 @@
   td:first-child, th:first-child { text-align: left; color: var(--ink-2); }
   tbody tr:last-child td { border-bottom: 0; }
   tfoot td { font-weight: 600; border-top: 1px solid var(--ink-2); border-bottom: 0; }
-  th i {
-    width: 8px; height: 8px; border-radius: 2px; display: inline-block; margin-right: 5px;
-  }
-  th i.c-model { background: var(--s-model); }
+  th i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; margin-right: 5px; }
+  th i.c-agree { background: var(--s-agree); }
   th i.c-all   { background: var(--s-all); }
   th i.c-ceil  { background: var(--s-ceil); }
+  #rules tbody tr.hi { background: var(--wash); }
+  #rules tbody tr.hi td:first-child { color: var(--ink); font-weight: 600; }
+  #rules tfoot td { font-weight: 400; color: var(--ink-2); }
 
   .mtx {
     display: grid; grid-template-columns: auto 1fr 1fr; gap: 1px;
@@ -211,9 +210,6 @@
   }
   .mtx .cell span { color: var(--ink-2); font-size: 11.5px; }
   .mtx .cell.hi { background: var(--wash); }
-  #rules tbody tr.hi { background: var(--wash); }
-  #rules tbody tr.hi td:first-child { color: var(--ink); font-weight: 600; }
-  #rules tfoot td { font-weight: 400; color: var(--ink-2); }
 
   .tip {
     position: fixed; z-index: 9; pointer-events: none; opacity: 0;
@@ -238,126 +234,106 @@
 
 <div class="wrap">
   <header>
-    <p class="eyebrow">Capacity-Margrabe &middot; monthly PTR bid rule</p>
-    <h1>Does the fair-value bid earn anything the auction wasn&rsquo;t already giving away?</h1>
-    <p class="lede">Every JAO <b>monthly</b> capacity auction on the <b><span id="n-corr">&mdash;</span> corridors</b> this model
-      can price &mdash; <span id="n-zp">&mdash;</span> directed zone pairs, with the German-Czech border
-      splitting into four TSO-level instruments &mdash; 2024-08 &rarr; 2026-07. Each right is valued at its own
-      <b>bid gate closure</b> &mdash; a
-      median 12 days before delivery starts &mdash; from the Margrabe spread option fitted on the
-      12 whole months of day-ahead history before it. We bid the model&rsquo;s fair value and pay
-      the clearing price when we win. Plotted against the two references that matter: <b>buying
-      every right</b> at any price, and <b>perfect foresight</b>, which buys only the rights that
-      turned out profitable.</p>
+    <p class="eyebrow">JAO monthly capacity rights &middot; two models, one order</p>
+    <h1>Bid the lower of two fair values, and only where both of them clear</h1>
+    <p class="lede">Two models price the same transmission right from disjoint inputs. One is a
+      <b>Margrabe spread option</b> on the EEX forward curve with a volatility fitted to day-ahead
+      history &mdash; no fundamentals. The other is the <code>capacities</code> project&rsquo;s
+      <b>LGBM day-ahead forecast</b> off 64 Volue fundamentals curves &mdash; no forwards. This page is
+      about the rule that submits <b>one order at the lower of the two</b>.</p>
+    <p class="rule-def">bid = min( margrabe_value , fundamental_bid )</p>
+    <p class="lede">JAO monthly auctions are <b>marginal-priced</b>, so the bid level does nothing except
+      decide whether you win &mdash; you pay the clearing price either way. That makes this rule exactly
+      equivalent to <b>&ldquo;buy only where both models independently clear the price&rdquo;</b>, because
+      <code>min(a,b) &ge; c</code> if and only if <code>a &ge; c</code> and <code>b &ge; c</code>.
+      Verified on the data: identical win set, identical P&amp;L to the cent. It is also why the rule beats
+      the average and the max of the same two numbers, which is the first thing below.</p>
+    <p class="lede">Every auction is priced <b>as of its own bid gate closure</b>, a median 12 days before
+      delivery starts, from information that predates the gate.
+      <span id="scope-line"></span></p>
   </header>
 
   <div class="scope">
     <span class="k">Read this first</span>
     <div>
-      <p>P&amp;L is <b>EUR at 1 MW on each border</b>: <code>(realised value &minus; clearing price) &times; delivery hours</code>.
-        Realised value is <code>mean(max(P_to &minus; P_from, 0))</code> over the delivered hours &mdash; a
-        non-nominated right is paid the coupling differential under UIOSI, so a negative spread pays 0, not a loss.</p>
-      <p>One thing is deliberately <b>not</b> modelled: we assume a <b>price taker</b> &mdash; our bid never
-        moves the clearing price. Plausible at 1 MW against 30-plus-bidder books, but unverified.</p>
+      <p>P&amp;L is <b>EUR at 1 MW on each corridor</b>:
+        <code>(realised value &minus; clearing price) &times; delivery hours</code>. Realised value is
+        <code>mean(max(P_to &minus; P_from, 0))</code> over the delivered hours &mdash; a non-nominated
+        right is paid the coupling differential under UIOSI, so a negative spread pays 0, not a loss.</p>
+      <p>One thing is deliberately <b>not</b> modelled: we assume a <b>price taker</b> &mdash; our bid
+        never moves the clearing price. Plausible at 1 MW against 30-plus-bidder books, but unverified.</p>
       <p><b>Maintenance is not a discount.</b> <code>DE(50Hz)-CZ</code> averages 172 h a month of reduced
-        ATC and its <code>maintenance_min_atc_mw</code> is <b>0</b>, so even 1 MW is physically out &mdash;
-        but under HAR Art 59 a curtailed holder is made whole at the same <code>max(spread, 0)</code> a
-        non-nominated holder receives, and all 7,728 observed curtailment records read
-        <code>Network Security</code>, not force majeure. So value per MWh is not reduced. The residual is
-        the Art 59(2)&ndash;(4) compensation cap, which cuts all holders pro rata and is not quantifiable
-        without JAO&rsquo;s cap figures &mdash; it would bite hardest on exactly these corridors.</p>
-      <p><code>CZ-DE</code> and <code>DE-CZ</code> run no monthly auction under those names, but the
-        TSO-split corridors do and price off the same <code>DE_LU</code> zone. An earlier version of this
-        page dropped all four. They are not the largest single corridor &mdash; <code>DE-AT</code> is, at
-        +53,860 on buy-everything &mdash; but as a group they are the largest source under the bid rule
-        (+44,675 against DE-AT&rsquo;s +39,834), and dropping them was what made DE-AT look like the whole
-        story.</p>
+        ATC with <code>maintenance_min_atc_mw</code> of <b>0</b>, so even 1 MW is physically out &mdash;
+        but under HAR Art 59 a curtailed holder is made whole at the same <code>max(spread, 0)</code>, and
+        all 7,728 observed curtailment records read <code>Network Security</code>, not force majeure. The
+        residual is the Art 59(2)&ndash;(4) compensation cap, which cuts holders pro rata and is not
+        quantifiable without JAO&rsquo;s published cap figures.</p>
+      <p>Both models are scored against <b>this</b> project&rsquo;s realised values so the target is
+        identical. They agree to <b>0.016 EUR/MWh</b> on average anyway, computing the same payoff from
+        independent price pulls.</p>
     </div>
   </div>
 
-  <p class="note" id="kpi-window"></p>
   <div class="kpis" id="kpis"></div>
 
   <section>
-    <h2>Profitability per delivery month <span class="win" id="win-1"></span></h2>
-    <p class="note">Bars are summed across the corridors offered in that month, so a month where
-      the rule buys nothing sits at zero rather than going missing. The ceiling is a bound, not a rival
-      strategy &mdash; it is what the same rights were worth to someone who already knew.</p>
+    <h2>Why the lower, and not the average or the max</h2>
+    <p class="note">Marginal pricing means the bid level only selects the win set, so the three
+      combinations are <b>nested</b>: everything the lower bid buys, the average buys, and everything the
+      average buys, the max buys. Each relaxation is therefore testable on the auctions it <i>adds</i>
+      &mdash; the last two rows price exactly those.</p>
+    <div class="tablewrap"><table id="rules"></table></div>
+    <p class="note" id="rules-verdict"></p>
+  </section>
+
+  <section>
+    <h2>The mechanism: disagreement is the signal to stay out</h2>
+    <p class="note">Mean P&amp;L per auction in each cell of the 2&times;2. The agreement bid is the
+      top-left cell alone. It is not that agreement is magic &mdash; it is that whenever one model buys and
+      the other declines the average auction loses money, and the lower bid is the only one of the three
+      combinations that excludes every disagreement.</p>
+    <div class="mtx" id="mtx"></div>
+  </section>
+
+  <section>
+    <h2>Month by month</h2>
+    <p class="note">Bars are summed across the corridors offered that month, so a month where the rule
+      buys nothing sits at zero rather than going missing. Perfect foresight buys only the rights that
+      turned out profitable &mdash; a bound, not a rival strategy.</p>
     <div class="legend" id="lg1"></div>
     <div class="plot" id="p-month"></div>
   </section>
 
   <section>
-    <h2>Cumulative, and where it all comes from <span class="win" id="win-2"></span></h2>
-    <p class="note">The dashed line is the same rule with <b>both rich border groups removed</b> &mdash;
-      DE-AT/AT-DE and the four German-Czech corridors. Those two groups carry the entire result: strip
-      them and the rule is a loss, and bidding indiscriminately on either was already profitable
-      without any model. Excluding only DE-AT, as an earlier version of this page did, understates the
-      rule &mdash; the German-Czech corridors are the larger source. The gap between the rule and the
-      ceiling is the honest measure of how much of the available money the fair value actually finds.</p>
+    <h2>Cumulative, and the honest control</h2>
+    <p class="note">The dashed line is the agreement bid with <b>both rich border groups removed</b>
+      &mdash; DE-AT/AT-DE and the four German-Czech corridors, where the auction left money on the table
+      regardless of any model. That is the control that matters: on the corridors where nothing was being
+      given away, does the rule still add anything?</p>
     <div class="legend" id="lg2"></div>
     <div class="plot" id="p-cum"></div>
   </section>
 
   <section>
-    <h2>Per corridor <span class="win" id="win-3"></span></h2>
-    <p class="note">Two groups carry the result: <code>DE-AT</code> (the largest single corridor) and the
-      four German-Czech ones (the largest group under the rule). The most instructive row is
-      <code>FR-DE</code>: buying it blind loses 25,950, yet the rule takes 6 of 24 and earns +10,030.
-      Note <code>DE(50Hz)-CZ</code> and <code>DE(TenneT)-CZ</code> clear within a euro of each other on
-      identical prices while one of them is curtailed ~172 h a month &mdash; the auction is not pricing
-      that difference. Where the rule loses (<code>CZ-SK</code>, <code>SK-HU</code>) it bought the wrong
-      months.</p>
+    <h2>Per corridor</h2>
+    <p class="note" id="corr-note"></p>
     <div class="legend" id="lg3"></div>
     <div class="plot" id="p-corr"></div>
   </section>
 
-  <section id="s-cmp" hidden>
-    <h2>Against the fundamental model <span class="win" id="win-4"></span></h2>
-    <p class="note">The sibling <code>capacities</code> project attacks the same auction from the
-      opposite direction: per-zone LGBM day-ahead price forecasts off 64 Volue fundamentals curves,
-      turned into a predicted spread and bid at its <b>p50</b> with a calibration factor. No forwards,
-      no fitted volatility. Both bid books overlap on <span id="cmp-scope"></span>, and both are
-      scored here against <b>this</b> project&rsquo;s realised values &mdash; the two agree to
-      0.016 EUR/MWh on average anyway, computing the same payoff from independent price pulls.</p>
-
-    <div class="scope" id="scope-window">
-      <span class="k">Different window</span>
-      <div><p id="scope-window-text"></p></div>
-    </div>
-
-    <h3 class="sub">How accurate is each value estimate?</h3>
-    <p class="note">Rule-independent: just the predicted value against what the right turned out to be
-      worth. Shorter is better. The forward spread floored at zero is the do-nothing reference.</p>
+  <section>
+    <h2>Why neither model alone</h2>
+    <p class="note">Rule-independent: each estimate against what the right turned out to be worth.
+      Shorter is better. Watch the <i>bias</i> column for the lower-of-two &mdash; taking a minimum is
+      deliberately conservative, so it understates value by construction. That is a feature for a bidder,
+      and it is why the rule is not the most accurate row here.</p>
     <div class="plot" id="p-acc"></div>
-
-    <h3 class="sub">And what does each bid rule earn?</h3>
-    <p class="note"><span id="cmp-lede"></span> The interesting line is <b>both agree</b> &mdash; buy only
-      where the forward-vol model and the fundamental model independently say the right is worth more
-      than it cleared. Because JAO is <b>marginal-priced</b>, that is exactly the same thing as
-      submitting one order at the lower of the two fair values: <code>min(a,b) &ge; c</code> if and only
-      if both clear <code>c</code>, and you pay <code>c</code> either way. Verified identical &mdash;
-      same win set, same P&amp;L to the cent.</p>
-    <div class="legend" id="lg4"></div>
-    <div class="plot" id="p-cmp"></div>
-
-    <h3 class="sub">Lower, average, or max of the two fair values?</h3>
-    <p class="note">Marginal pricing means the bid level does nothing except select the win set, so these
-      three rules are <b>nested</b>: everything the lower bid buys, the average buys, and everything the
-      average buys, the max buys. That makes each relaxation testable on its own terms &mdash; the bottom
-      two rows price only the auctions a looser rule <i>adds</i>.</p>
-    <div class="tablewrap"><table id="rules"></table></div>
-
-    <h3 class="sub">Where the money is: agreement, not either model</h3>
-    <p class="note">Mean P&amp;L per auction in each cell of the 2&times;2. Disagreement is the signal
-      to stay out: whenever one model buys and the other declines, the average auction loses money.</p>
-    <div class="mtx" id="mtx"></div>
-    <p class="note" id="cmp-caveat"></p>
   </section>
 
   <section>
     <h2>Table view</h2>
-    <p class="note">Every month, both P&amp;L in EUR and the count of rights bought out of the eight offered.</p>
+    <p class="note">Every month: P&amp;L in EUR at 1 MW, and how many of the offered rights each rule
+      bought.</p>
     <div class="tablewrap"><table id="tbl"></table></div>
   </section>
 
@@ -377,10 +353,17 @@ const DATA = __DATA__;
   const CSS = getComputedStyle(document.documentElement);
   const col = n => CSS.getPropertyValue(n).trim();
 
-  const SERIES = [
-    { k: "fs_eur",  key: "ceil",  name: "Perfect foresight", v: "--s-ceil",  dash: "2 3" },
-    { k: "all_eur", key: "all",   name: "Buy everything",    v: "--s-all",   dash: "7 4" },
-    { k: "mdl_eur", key: "model", name: "Model bid",         v: "--s-model", dash: "" },
+  /* entity -> hue, fixed order, never cycled. Validated in both modes. */
+  const BARS = [
+    { k: "fs_eur",  name: "Perfect foresight", v: "--s-ceil" },
+    { k: "all_eur", name: "Buy everything",    v: "--s-all" },
+    { k: "lo_eur",  name: "Agreement bid",     v: "--s-agree" },
+  ];
+  const LINES = [
+    { k: "all_eur", name: "Buy everything",    v: "--s-all",   dash: "7 4" },
+    { k: "cap_eur", name: "Fundamental alone", v: "--s-cap",   dash: "2 3" },
+    { k: "mar_eur", name: "Margrabe alone",    v: "--s-mar",   dash: "10 3 2 3" },
+    { k: "lo_eur",  name: "Agreement bid",     v: "--s-agree", dash: "" },
   ];
 
   function el(t, a) {
@@ -388,12 +371,13 @@ const DATA = __DATA__;
     for (const k in a) n.setAttribute(k, a[k]);
     return n;
   }
-  const eur = v => (v < 0 ? "\u2212" : "+") + Math.abs(Math.round(v)).toLocaleString("en-US");
-  const eurK = v => (v < 0 ? "\u2212" : "") + (Math.abs(v) >= 1000
+  const MINUS = "\u2212", DASH = "\u2014", DOT = " \u00b7 ";
+  const eur = v => (v < 0 ? MINUS : "+") + Math.abs(Math.round(v)).toLocaleString("en-US");
+  const eurK = v => (v < 0 ? MINUS : "") + (Math.abs(v) >= 1000
     ? (Math.abs(v) / 1000).toFixed(Math.abs(v) >= 10000 ? 0 : 1) + "k"
     : Math.round(Math.abs(v)));
+  const sgn2 = v => (v >= 0 ? "+" : MINUS) + Math.abs(v).toFixed(2);
 
-  /* ---------- shared tooltip ---------- */
   const tip = document.getElementById("tip");
   function showTip(ev, title, rows) {
     let h = '<div class="t">' + title + "</div>";
@@ -413,15 +397,18 @@ const DATA = __DATA__;
   }
   const hideTip = () => { tip.style.opacity = 0; };
 
-  /* rounded rect with the two data-end corners rounded, anchored at the baseline */
   function barPath(x, y, w, h, r, up) {
     r = Math.max(0, Math.min(r, w / 2, h));
     return up
       ? `M${x},${y + h}V${y + r}q0,${-r} ${r},${-r}h${w - 2 * r}q${r},0 ${r},${r}V${y + h}Z`
       : `M${x},${y}V${y + h - r}q0,${r} ${r},${r}h${w - 2 * r}q${r},0 ${r},${-r}V${y}Z`;
   }
-
-  /* push near-identical end-label positions apart so they never overlap */
+  function barPathH(x, y, w, h, r, right) {
+    r = Math.max(0, Math.min(r, h / 2, w));
+    return right
+      ? `M${x},${y}H${x + w - r}q${r},0 ${r},${r}v${h - 2 * r}q0,${r} ${-r},${r}H${x}Z`
+      : `M${x + w},${y}H${x + r}q${-r},0 ${-r},${r}v${h - 2 * r}q0,${r} ${r},${r}H${x + w}Z`;
+  }
   function declash(items, minGap) {
     items.sort((a, b) => a.y - b.y);
     for (let i = 1; i < items.length; i++) {
@@ -429,7 +416,6 @@ const DATA = __DATA__;
     }
     return items;
   }
-
   function ticks(lo, hi, n) {
     const raw = (hi - lo) / n, mag = Math.pow(10, Math.floor(Math.log10(raw)));
     const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= raw) || 10 * mag;
@@ -437,37 +423,94 @@ const DATA = __DATA__;
     for (let t = Math.ceil(lo / step) * step; t <= hi + 1e-9; t += step) out.push(t);
     return out;
   }
-
-  /* ---------- KPIs ---------- */
-  (function () {
-    const cap = 100 * M.mdl_total / M.fs_total;
-    const rows = [
-      ["Model bid", eur(M.mdl_total), "model", M.mdl_n + " of " + M.n + " rights bought"],
-      ["Buy everything", eur(M.all_total), "all", M.n + " rights, any price"],
-      ["Perfect foresight", eur(M.fs_total), "ceil", M.fs_n + " profitable rights"],
-      ["Ceiling captured", cap.toFixed(1) + "%", "", "buy-everything: " + (100 * M.all_total / M.fs_total).toFixed(1) + "%"],
-      ["Months in profit", D.full.filter(r => r.mdl_eur > 0).length + " / " + M.months, "", "buy-everything: " +
-        D.full.filter(r => r.all_eur > 0).length + " / " + M.months],
-      ["Excl. rich groups", eur(D.ex_deat.reduce((a, r) => a + r.mdl_eur, 0)), "", "no DE-AT, no German-Czech"],
-    ];
-    document.getElementById("kpis").innerHTML = rows.map(([l, v, c, s]) =>
-      '<div class="kpi"><span class="lab">' +
-      (c ? '<i style="background:' + col("--s-" + c) + '"></i>' : "") + l +
-      '</span><span class="val">' + v + '</span><span class="sub">' + s + "</span></div>").join("");
-  })();
-
-  /* ---------- legends ---------- */
   function legend(host, items) {
     document.getElementById(host).innerHTML = items.map(s =>
       '<span><i class="' + (s.sq ? "sq" : "") + '" style="' +
       (s.sq ? "background:" : "border-top-color:") + col(s.v) +
       (s.dash && !s.sq ? ";border-top-style:dashed" : "") + '"></i>' + s.name + "</span>").join("");
   }
-  legend("lg1", SERIES.map(s => ({ ...s, sq: true })));
-  legend("lg2", SERIES.concat([{ name: "Model bid, excl. both rich groups", v: "--s-model", dash: "4 3" }]));
-  legend("lg3", SERIES.map(s => ({ ...s, sq: true })));
 
-  /* ---------- chart 1: grouped bars per delivery month ---------- */
+  /* ---------- header line + KPI strip ---------- */
+  document.getElementById("scope-line").innerHTML =
+    "The rule only exists where both books carry a value, so the whole page runs on one window: <b>" +
+    M.n + " cleared auctions</b> across <b>" + M.corridors + " corridors</b>, " +
+    M.first + " to " + M.last + ".";
+
+  function drawKpis() {
+    const rows = [
+      ["Agreement bid", eur(M.lo_total), "agree", M.lo_n + " of " + M.n + " rights bought", true],
+      ["Buy everything", eur(M.all_total), "all", M.n + " rights, any price", false],
+      ["Perfect foresight", eur(M.fs_total), "ceil", M.fs_n + " profitable rights", false],
+      ["Ceiling captured", (100 * M.lo_total / M.fs_total).toFixed(1) + "%", "",
+        "buy-everything: " + (100 * M.all_total / M.fs_total).toFixed(1) + "%", false],
+      ["Months in profit", M.months_pos + " / " + M.months, "",
+        "buy-everything: " + M.months_pos_all + " / " + M.months, false],
+      ["Excl. rich groups", eur(M.ex_total), "", "the control, " + M.ex_n + " auctions", false],
+    ];
+    document.getElementById("kpis").innerHTML = rows.map(([l, v, c, s, lead]) =>
+      '<div class="kpi' + (lead ? " lead" : "") + '"><span class="lab">' +
+      (c ? '<i style="background:' + col("--s-" + c) + '"></i>' : "") + l +
+      '</span><span class="val">' + v + '</span><span class="sub">' + s + "</span></div>").join("");
+  }
+
+  /* ---------- the strictness ladder ---------- */
+  function drawRules() {
+    const t = document.getElementById("rules");
+    let h = "<thead><tr><th>Bid rule</th><th>Buys</th><th>n</th><th>Total EUR</th>" +
+      "<th>Per auction</th><th>t</th><th>Hit%</th><th>Per auction, ex rich</th></tr></thead><tbody>";
+    for (const r of D.rules) {
+      const hi = r.name.startsWith("LOWER") ? ' class="hi"' : "";
+      h += "<tr" + hi + "><td>" + r.name + "</td><td>" + r.note + "</td><td>" + r.n + "</td><td>" +
+        eur(r.total) + "</td><td>" + eur(r.mean) + "</td><td>" +
+        (r.t === null ? DASH : sgn2(r.t)) + "</td><td>" + r.hit.toFixed(1) + "</td><td>" +
+        (r.ex_mean === null ? DASH : eur(r.ex_mean)) + "</td></tr>";
+    }
+    h += "</tbody><tfoot>";
+    for (const m of D.marginal) {
+      h += "<tr><td>only what " + m.name + "</td><td>the marginal auctions</td><td>" + m.n +
+        "</td><td>" + eur(m.total) + "</td><td>" + eur(m.mean) + "</td><td>" + DASH + "</td><td>" +
+        m.hit.toFixed(1) + "</td><td>" + DASH + "</td></tr>";
+    }
+    t.innerHTML = h + "</tfoot>";
+
+    const lo = D.rules.find(r => r.name.startsWith("LOWER"));
+    const hi = D.rules.find(r => r.name.startsWith("MAX"));
+    const all = D.rules[0];
+    const beaten = D.rules.filter(r => r !== lo && r.name !== "Perfect foresight"
+                                       && r.mean > lo.mean).length;
+    document.getElementById("rules-verdict").innerHTML =
+      (beaten === 0
+        ? "<b>The lower bid wins on every column</b> against every rule except the ceiling"
+        : "<b>The lower bid leads on total and per-auction</b>, beaten on " + beaten + " row(s)") +
+      " &mdash; and the nesting says why: each relaxation buys strictly worse auctions. Going from lower " +
+      "to average admits " + D.marginal[0].n + " more at " + eur(D.marginal[0].mean) +
+      " each; going on to max admits " + D.marginal[1].n + " more at " + eur(D.marginal[1].mean) +
+      ". So max (" + eur(hi.mean) + "/auction) is barely better than bidding blind (" +
+      eur(all.mean) + "): &ldquo;either model likes it&rdquo; is close to &ldquo;someone had an " +
+      "opinion&rdquo;. Average lands between, as arithmetic requires. There is <b>no interior optimum " +
+      "to tune</b> &mdash; ordering these rules by P&amp;L reproduces the strictness ordering exactly. " +
+      "And it survives the control: in the last column, with both rich border groups removed, every " +
+      "rule still loses, but the lower bid loses <b>" + eur(lo.ex_mean) + " per auction against " +
+      eur(all.ex_mean) + "</b> for bidding blind, and it is the least-bad of the six. That ordering " +
+      "holding on the corridors where nothing was being given away is the most defensible thing here. " +
+      "What is not established is profit: the lower bid is <b>" + lo.n + " auctions at t = " +
+      sgn2(lo.t) + "</b>.";
+  }
+
+  /* ---------- the 2x2 ---------- */
+  function drawMatrix() {
+    const cell = (mar, cap) => D.matrix.find(r => r.mar === mar && r.cap === cap);
+    const box = (r, hi) => '<div class="cell' + (hi ? " hi" : "") + '"><b>' +
+      (r.mean === null ? DASH : eur(r.mean)) + "</b><span>" + r.n +
+      " auctions" + DOT + "total " + eur(r.total) + "</span></div>";
+    document.getElementById("mtx").innerHTML =
+      '<div class="hd"></div><div class="hd">Fundamental buys</div><div class="hd">Fundamental declines</div>' +
+      '<div class="hd">Margrabe buys</div>' + box(cell(true, true), true) + box(cell(true, false), false) +
+      '<div class="hd">Margrabe declines</div>' + box(cell(false, true), false) +
+      box(cell(false, false), false);
+  }
+
+  /* ---------- monthly bars ---------- */
   function drawMonth() {
     const host = document.getElementById("p-month");
     host.textContent = "";
@@ -475,7 +518,7 @@ const DATA = __DATA__;
     const W = 1120, H = 360, m = { l: 62, r: 14, t: 16, b: 52 };
     const iw = W - m.l - m.r, ih = H - m.t - m.b;
     let lo = 0, hi = 0;
-    for (const r of rows) for (const s of SERIES) { lo = Math.min(lo, r[s.k]); hi = Math.max(hi, r[s.k]); }
+    for (const r of rows) for (const s of BARS) { lo = Math.min(lo, r[s.k]); hi = Math.max(hi, r[s.k]); }
     const T = ticks(lo, hi, 6);
     lo = Math.min(lo, T[0]); hi = Math.max(hi, T[T.length - 1]);
     const Y = v => m.t + ih - (v - lo) / (hi - lo) * ih;
@@ -494,12 +537,11 @@ const DATA = __DATA__;
 
     rows.forEach((r, i) => {
       const gx = m.l + i * gw + (gw - bw * 3 - 4) / 2;
-      SERIES.forEach((s, j) => {
-        const v = r[s.k], x = gx + j * (bw + 2);
+      BARS.forEach((s, jj) => {
+        const v = r[s.k], x = gx + jj * (bw + 2);
         const y0 = Y(0), y1 = Y(v), h = Math.abs(y1 - y0);
         if (h > 0.4) {
-          svg.append(el("path", { d: barPath(x, Math.min(y0, y1), bw, h, 4, v >= 0),
-            fill: col(s.v) }));
+          svg.append(el("path", { d: barPath(x, Math.min(y0, y1), bw, h, 4, v >= 0), fill: col(s.v) }));
         } else {
           svg.append(el("rect", { x: x, y: y0 - 0.5, width: bw, height: 1, fill: col(s.v) }));
         }
@@ -512,252 +554,31 @@ const DATA = __DATA__;
         yr.textContent = r.m.slice(0, 4); svg.append(yr);
       }
       const hit = el("rect", { x: m.l + i * gw, y: m.t, width: gw, height: ih, fill: "transparent" });
-      hit.addEventListener("mousemove", ev => showTip(ev, r.m + " \u00b7 " + r.hours + " h",
-        SERIES.map(s => ({ c: col(s.v), l: s.name, v: eur(r[s.k]) }))
-          .concat([{ l: "bought / offered", v: r.mdl_n + " / " + r.n }])));
+      hit.addEventListener("mousemove", ev => showTip(ev, r.m + DOT + r.hours + " h",
+        BARS.map(s => ({ c: col(s.v), l: s.name, v: eur(r[s.k]) }))
+          .concat([{ l: "bought / offered", v: r.lo_n + " / " + r.n }])));
       hit.addEventListener("mouseleave", hideTip);
       svg.append(hit);
     });
     host.append(svg);
   }
 
-  /* ---------- chart 2: cumulative lines ---------- */
+  /* ---------- cumulative ---------- */
   function drawCum() {
     const host = document.getElementById("p-cum");
     host.textContent = "";
-    const rows = D.full, ex = D.ex_deat;
-    const W = 1120, H = 330, m = { l: 62, r: 148, t: 16, b: 46 };
+    const rows = D.full, ex = D.ex_rich;
+    const W = 1120, H = 340, m = { l: 62, r: 186, t: 16, b: 46 };
     const iw = W - m.l - m.r, ih = H - m.t - m.b;
 
-    const cum = k => { let a = 0; return rows.map(r => (a += r[k])); };
-    const lines = SERIES.map(s => ({ ...s, y: cum(s.k), dashed: false }));
-    let a = 0;
-    lines.push({ name: "Model bid, excl. DE-AT pair", v: "--s-model", dash: "4 3", dashed: true,
-      y: ex.map(r => (a += r.mdl_eur)) });
-
-    let lo = 0, hi = 0;
-    for (const L of lines) for (const v of L.y) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
-    const T = ticks(lo, hi, 6);
-    lo = Math.min(lo, T[0]); hi = Math.max(hi, T[T.length - 1]);
-    const X = i => m.l + (rows.length === 1 ? iw / 2 : i / (rows.length - 1) * iw);
-    const Y = v => m.t + ih - (v - lo) / (hi - lo) * ih;
-
-    const svg = el("svg", { viewBox: "0 0 " + W + " " + H, role: "img",
-      "aria-label": "Cumulative profit and loss in euro across the window" });
-    for (const t of T) {
-      svg.append(el("line", { class: t === 0 ? "zero-rule" : "gridline",
-        x1: m.l, x2: m.l + iw, y1: Y(t), y2: Y(t) }));
-      const tx = el("text", { x: m.l - 9, y: Y(t) + 3.5, "text-anchor": "end" });
-      tx.textContent = eurK(t); svg.append(tx);
-    }
-    const al = el("text", { x: m.l - 9, y: m.t - 5, "text-anchor": "end", class: "axis" });
-    al.textContent = "EUR"; svg.append(al);
-    rows.forEach((r, i) => {
-      if (r.m.slice(5) === "01" || i === 0 || i === rows.length - 1) {
-        svg.append(el("line", { class: "gridline", x1: X(i), x2: X(i), y1: m.t, y2: m.t + ih }));
-        const lb = el("text", { x: X(i), y: m.t + ih + 16, "text-anchor": "middle" });
-        lb.textContent = r.m; svg.append(lb);
-      }
-    });
-
-    const labels = [];
-    for (const L of lines) {
-      svg.append(el("path", {
-        class: "series-line", stroke: col(L.v),
-        "stroke-dasharray": L.dashed ? L.dash : "",
-        "stroke-opacity": L.dashed ? 0.85 : 1,
-        d: L.y.map((v, i) => (i ? "L" : "M") + X(i) + "," + Y(v)).join(" "),
-      }));
-      const last = L.y[L.y.length - 1];
-      labels.push({ y: Y(last) + 3.5, txt: eur(last) + (L.dashed ? "  (ex rich)" : "") });
-    }
-    /* direct end labels - also the relief for the aqua contrast warning */
-    for (const lb of declash(labels, 12)) {
-      const t1 = el("text", { x: m.l + iw + 9, y: lb.y, class: "val" });
-      t1.setAttribute("fill", col("--ink"));   /* text wears a text token; the line carries identity */
-      t1.textContent = lb.txt;
-      svg.append(t1);
-    }
-
-    /* crosshair */
-    const cross = el("line", { class: "gridline", y1: m.t, y2: m.t + ih,
-      stroke: col("--ink-2"), "stroke-opacity": 0.45, visibility: "hidden" });
-    svg.append(cross);
-    const hit = el("rect", { x: m.l, y: m.t, width: iw, height: ih, fill: "transparent" });
-    hit.addEventListener("mousemove", ev => {
-      const box = svg.getBoundingClientRect();
-      const px = (ev.clientX - box.left) / box.width * W;
-      let i = Math.round((px - m.l) / iw * (rows.length - 1));
-      i = Math.max(0, Math.min(rows.length - 1, i));
-      cross.setAttribute("x1", X(i)); cross.setAttribute("x2", X(i));
-      cross.setAttribute("visibility", "visible");
-      showTip(ev, "cumulative through " + rows[i].m,
-        lines.map(L => ({ c: col(L.v), l: L.name, v: eur(L.y[i]) })));
-    });
-    hit.addEventListener("mouseleave", () => { hideTip(); cross.setAttribute("visibility", "hidden"); });
-    svg.append(hit);
-    host.append(svg);
-  }
-
-  /* ---------- chart 3: per corridor ---------- */
-  function drawCorr() {
-    const host = document.getElementById("p-corr");
-    host.textContent = "";
-    const rows = D.corridors.slice().sort((a, b) => b.mdl - a.mdl);
-    const W = 1120, rowH = 46, m = { l: 84, r: 78, t: 26, b: 34 };
-    const ih = rows.length * rowH, H = ih + m.t + m.b, iw = W - m.l - m.r;
-    let lo = 0, hi = 0;
-    for (const r of rows) { lo = Math.min(lo, r.all, r.mdl); hi = Math.max(hi, r.fs, r.mdl, r.all); }
-    const T = ticks(lo, hi, 6);
-    lo = Math.min(lo, T[0]); hi = Math.max(hi, T[T.length - 1]);
-    const X = v => m.l + (v - lo) / (hi - lo) * iw;
-
-    const svg = el("svg", { viewBox: "0 0 " + W + " " + H, role: "img",
-      "aria-label": "Profit and loss in euro per corridor over the whole window" });
-    for (const t of T) {
-      svg.append(el("line", { class: t === 0 ? "zero-rule" : "gridline",
-        x1: X(t), x2: X(t), y1: m.t - 8, y2: m.t + ih }));
-      const tx = el("text", { x: X(t), y: m.t - 13, "text-anchor": "middle" });
-      tx.textContent = eurK(t); svg.append(tx);
-    }
-    const bh = 9;
-    rows.forEach((r, i) => {
-      const yc = m.t + i * rowH + rowH / 2;
-      const vals = [["ceil", r.fs], ["all", r.all], ["mdl", r.mdl]];
-      SERIES.forEach((s, j) => {
-        const v = [r.fs, r.all, r.mdl][j];
-        const x0 = X(0), x1 = X(v), y = yc - (bh * 3 + 4) / 2 + j * (bh + 2);
-        const w = Math.abs(x1 - x0);
-        if (w > 0.4) {
-          svg.append(el("path", { d: barPathH(Math.min(x0, x1), y, w, bh, 4, v >= 0), fill: col(s.v) }));
-        }
-      });
-      const nm = el("text", { x: m.l - 12, y: yc + 3.5, "text-anchor": "end", class: "axis" });
-      nm.textContent = r.c; svg.append(nm);
-      const bought = el("text", { x: m.l + iw + 10, y: yc + 3.5, class: "val" });
-      bought.textContent = r.n_won + "/" + r.n + " bought"; svg.append(bought);
-      const hit = el("rect", { x: m.l - 80, y: m.t + i * rowH, width: iw + 150, height: rowH, fill: "transparent" });
-      hit.addEventListener("mousemove", ev => showTip(ev, r.c + " \u00b7 mean clearing " + r.clearing.toFixed(2) + " EUR/MWh", [
-        { c: col("--s-ceil"), l: "Perfect foresight", v: eur(r.fs) },
-        { c: col("--s-all"), l: "Buy everything", v: eur(r.all) },
-        { c: col("--s-model"), l: "Model bid", v: eur(r.mdl) },
-        { l: "bought / offered", v: r.n_won + " / " + r.n },
-      ]));
-      hit.addEventListener("mouseleave", hideTip);
-      svg.append(hit);
-    });
-    const at = el("text", { x: m.l + iw / 2, y: H - 8, "text-anchor": "middle", class: "axis" });
-    at.textContent = "EUR at 1 MW, whole window"; svg.append(at);
-    host.append(svg);
-  }
-  function barPathH(x, y, w, h, r, right) {
-    r = Math.max(0, Math.min(r, h / 2, w));
-    return right
-      ? `M${x},${y}H${x + w - r}q${r},0 ${r},${r}v${h - 2 * r}q0,${r} ${-r},${r}H${x}Z`
-      : `M${x + w},${y}H${x + r}q${-r},0 ${-r},${r}v${h - 2 * r}q0,${r} ${r},${r}H${x + w}Z`;
-  }
-
-  /* ---------- table ---------- */
-  function drawTable() {
-    const t = document.getElementById("tbl");
-    let h = "<thead><tr><th>Delivery</th><th>Hours</th>" +
-      '<th><i class="c-ceil"></i>Foresight</th><th>n</th>' +
-      '<th><i class="c-all"></i>Buy all</th><th>n</th>' +
-      '<th><i class="c-model"></i>Model</th><th>n</th>' +
-      '<th>Model EUR/MWh</th></tr></thead><tbody>';
-    for (const r of D.full) {
-      h += "<tr><td>" + r.m + "</td><td>" + r.hours + "</td>" +
-        '<td>' + eur(r.fs_eur) + "</td><td>" + r.fs_n + "</td>" +
-        '<td>' + eur(r.all_eur) + "</td><td>" + r.all_n + "</td>" +
-        '<td>' + eur(r.mdl_eur) + "</td><td>" + r.mdl_n + "</td>" +
-        "<td>" + (r.mdl_mwh === null ? "\u2014" : (r.mdl_mwh > 0 ? "+" : "\u2212") + Math.abs(r.mdl_mwh).toFixed(2)) + "</td></tr>";
-    }
-    /* totals from meta, which rounds once. Re-summing the rounded monthly cells
-       drifts a euro from the KPI strip and reads as an error. */
-    h += "</tbody><tfoot><tr><td>Total</td><td></td>" +
-      "<td>" + eur(M.fs_total) + "</td><td>" + M.fs_n + "</td>" +
-      "<td>" + eur(M.all_total) + "</td><td>" + M.n + "</td>" +
-      "<td>" + eur(M.mdl_total) + "</td><td>" + M.mdl_n + "</td>" +
-      "<td>" + (M.mdl_mwh >= 0 ? "+" : "\u2212") + Math.abs(M.mdl_mwh).toFixed(2) +
-      "</td></tr></tfoot>";
-    t.innerHTML = h;
-  }
-
-  const win = M.first + " to " + M.last;
-  for (const id of ["win-1", "win-2", "win-3"]) {
-    document.getElementById(id).textContent = win + " \u00b7 " + M.n + " auctions";
-  }
-  document.getElementById("kpi-window").textContent =
-    "Whole book: " + win + ", " + M.n + " cleared auctions across " + M.corridors + " corridors.";
-  document.getElementById("n-corr").textContent = M.corridors;
-  document.getElementById("n-zp").textContent = M.zone_pairs;
-
-  document.getElementById("foot").innerHTML =
-    "Spot: SK from OKTE <code>/dam/results</code>, neighbours from ENTSO-E day-ahead, hourly UTC across the " +
-    "2025-10-01 quarter-hour switch. Forwards: EEX monthly BASE settlements, decoded through the short codes in " +
-    "<code>plumbing/eex/catalog.md</code>, last close strictly before each gate&rsquo;s day. Auctions: JAO monthly " +
-    "results via <code>plumbing.jao_auctions</code>. Sigma is fitted on 12 monthly means per " +
-    "<code>capacity_class.capa_fit</code>, unmodified. Reproduce with " +
-    "<code>python run_capacity.py bid --window 12</code>. On the won set the mean is " +
-    ((M.mdl_mwh >= 0 ? "+" : "\u2212") + Math.abs(M.mdl_mwh).toFixed(2)) + " EUR/MWh at <b>t = " +
-    ((M.mdl_mwh_t >= 0 ? "+" : "\u2212") + Math.abs(M.mdl_mwh_t).toFixed(2)) +
-    "</b>, and the correlation between the model&rsquo;s edge and realised P&amp;L is <b>" +
-    ((M.edge_corr >= 0 ? "+" : "\u2212") + Math.abs(M.edge_corr).toFixed(3)) +
-    "</b> &mdash; treat the totals as two border groups&rsquo; luck until a longer window says otherwise.";
-
-  /* ---------- comparison against the fundamental model ---------- */
-  const C = D.compare;
-  const CMP = [
-    { k: "all",  name: "Buy everything",  v: "--s-all",   dash: "7 4" },
-    { k: "cap",  name: "Fundamental bid", v: "--s-cap",   dash: "2 3" },
-    { k: "mar",  name: "Margrabe bid",    v: "--s-model", dash: "" },
-    { k: "both", name: "Both agree",      v: "--s-both",  dash: "10 3 2 3" },
-  ];
-
-  function drawAcc() {
-    const host = document.getElementById("p-acc");
-    host.textContent = "";
-    const rows = C.accuracy;
-    const hue = { "Margrabe value": "--s-model", "Fundamental p50": "--s-cap",
-                  "Fundamental bid (p50 x k)": "--s-cap", "Forward spread, floored": "--muted" };
-    const W = 1120, rowH = 40, m = { l: 210, r: 250, t: 24, b: 30 };
-    const ih = rows.length * rowH, H = ih + m.t + m.b, iw = W - m.l - m.r;
-    const hi = Math.max(...rows.map(r => r.mae)) * 1.06;
-    const X = v => m.l + v / hi * iw;
-    const svg = el("svg", { viewBox: "0 0 " + W + " " + H, role: "img",
-      "aria-label": "Mean absolute error of each value estimate against the realised value" });
-    for (const t of ticks(0, hi, 5)) {
-      svg.append(el("line", { class: "gridline", x1: X(t), x2: X(t), y1: m.t - 8, y2: m.t + ih }));
-      const tx = el("text", { x: X(t), y: m.t - 13, "text-anchor": "middle" });
-      tx.textContent = t.toFixed(1); svg.append(tx);
-    }
-    rows.forEach((r, i) => {
-      const yc = m.t + i * rowH + rowH / 2;
-      svg.append(el("path", { d: barPathH(m.l, yc - 6, X(r.mae) - m.l, 12, 4, true),
-        fill: col(hue[r.name] || "--muted") }));
-      const nm = el("text", { x: m.l - 12, y: yc + 3.5, "text-anchor": "end", class: "axis" });
-      nm.textContent = r.name; svg.append(nm);
-      const lb = el("text", { x: X(r.mae) + 10, y: yc + 3.5, class: "val" });
-      lb.setAttribute("fill", col("--ink"));
-      lb.textContent = "MAE " + r.mae.toFixed(2) + "   bias " +
-        (r.me >= 0 ? "+" : "\u2212") + Math.abs(r.me).toFixed(2) + "   r " + r.corr.toFixed(2);
-      svg.append(lb);
-    });
-    const at = el("text", { x: m.l + iw / 2, y: H - 6, "text-anchor": "middle", class: "axis" });
-    at.textContent = "Mean absolute error vs realised value \u00b7 EUR/MWh"; svg.append(at);
-    host.append(svg);
-  }
-
-  function drawCmp() {
-    const host = document.getElementById("p-cmp");
-    host.textContent = "";
-    const rows = C.monthly;
-    const W = 1120, H = 320, m = { l: 62, r: 158, t: 16, b: 46 };
-    const iw = W - m.l - m.r, ih = H - m.t - m.b;
-    const lines = CMP.map(s => {
+    const lines = LINES.map(s => {
       let a = 0;
-      return { ...s, y: rows.map(r => (a += r[s.k])) };
+      return { ...s, y: rows.map(r => (a += r[s.k])), dashed: false };
     });
+    let a2 = 0;
+    lines.push({ name: "Agreement bid, ex rich groups", v: "--s-agree", dash: "4 3", dashed: true,
+      y: ex.map(r => (a2 += r.lo_eur)) });
+
     let lo = 0, hi = 0;
     for (const L of lines) for (const v of L.y) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
     const T = ticks(lo, hi, 6);
@@ -766,7 +587,7 @@ const DATA = __DATA__;
     const Y = v => m.t + ih - (v - lo) / (hi - lo) * ih;
 
     const svg = el("svg", { viewBox: "0 0 " + W + " " + H, role: "img",
-      "aria-label": "Cumulative profit and loss of four bid rules on the overlapping auctions" });
+      "aria-label": "Cumulative profit and loss in euro for each bid rule" });
     for (const t of T) {
       svg.append(el("line", { class: t === 0 ? "zero-rule" : "gridline",
         x1: m.l, x2: m.l + iw, y1: Y(t), y2: Y(t) }));
@@ -785,12 +606,13 @@ const DATA = __DATA__;
     const labels = [];
     for (const L of lines) {
       svg.append(el("path", { class: "series-line", stroke: col(L.v),
-        "stroke-dasharray": L.dash,
+        "stroke-dasharray": L.dash, "stroke-opacity": L.dashed ? 0.85 : 1,
         d: L.y.map((v, i) => (i ? "L" : "M") + X(i) + "," + Y(v)).join(" ") }));
       const last = L.y[L.y.length - 1];
-      const st = C.strategies.find(s => s.key === L.k);
-      labels.push({ y: Y(last) + 3.5, txt: eur(last) + "   n=" + st.n });
+      labels.push({ y: Y(last) + 3.5, txt: eur(last) + (L.dashed ? "  (ex rich)" : "") });
     }
+    /* direct end labels: also the relief for the light-mode contrast warning on
+       the aqua and yellow steps */
     for (const lb of declash(labels, 12)) {
       const t1 = el("text", { x: m.l + iw + 9, y: lb.y, class: "val" });
       t1.setAttribute("fill", col("--ink"));
@@ -815,82 +637,158 @@ const DATA = __DATA__;
     host.append(svg);
   }
 
-  function drawRules() {
-    const t = document.getElementById("rules");
-    let h = "<thead><tr><th>Bid rule</th><th>Buys</th><th>n</th><th>Total EUR</th>" +
-      "<th>Per auction</th><th>t</th><th>Hit%</th><th>Per auction, ex rich</th></tr></thead><tbody>";
-    for (const r of C.rules) {
-      const hi = r.name.startsWith("LOWER") ? ' class="hi"' : "";
-      h += "<tr" + hi + "><td>" + r.name + "</td><td>" + r.note + "</td><td>" + r.n + "</td><td>" +
-        eur(r.total) + "</td><td>" + eur(r.mean) + "</td><td>" +
-        (r.t === null ? "\u2014" : (r.t >= 0 ? "+" : "\u2212") + Math.abs(r.t).toFixed(2)) +
-        "</td><td>" + r.hit.toFixed(1) + "</td><td>" +
-        (r.ex_mean === null ? "\u2014" : eur(r.ex_mean)) + "</td></tr>";
+  /* ---------- per corridor ---------- */
+  function drawCorr() {
+    const host = document.getElementById("p-corr");
+    host.textContent = "";
+    const rows = D.corridors.slice().sort((a, b) => b.lo - a.lo);
+    const W = 1120, rowH = 40, m = { l: 132, r: 86, t: 26, b: 34 };
+    const ih = rows.length * rowH, H = ih + m.t + m.b, iw = W - m.l - m.r;
+    let lo = 0, hi = 0;
+    for (const r of rows) { lo = Math.min(lo, r.all, r.lo); hi = Math.max(hi, r.fs, r.lo, r.all); }
+    const T = ticks(lo, hi, 6);
+    lo = Math.min(lo, T[0]); hi = Math.max(hi, T[T.length - 1]);
+    const X = v => m.l + (v - lo) / (hi - lo) * iw;
+
+    const svg = el("svg", { viewBox: "0 0 " + W + " " + H, role: "img",
+      "aria-label": "Profit and loss in euro per corridor over the whole window" });
+    for (const t of T) {
+      svg.append(el("line", { class: t === 0 ? "zero-rule" : "gridline",
+        x1: X(t), x2: X(t), y1: m.t - 8, y2: m.t + ih }));
+      const tx = el("text", { x: X(t), y: m.t - 13, "text-anchor": "middle" });
+      tx.textContent = eurK(t); svg.append(tx);
     }
-    h += "</tbody><tfoot>";
-    for (const m of C.marginal) {
-      h += "<tr><td>only what " + m.name + "</td><td>the marginal auctions</td><td>" + m.n +
-        "</td><td>" + eur(m.total) + "</td><td>" + eur(m.mean) + "</td><td>\u2014</td><td>" +
-        m.hit.toFixed(1) + "</td><td>\u2014</td></tr>";
-    }
-    t.innerHTML = h + "</tfoot>";
+    const bh = 8;
+    rows.forEach((r, i) => {
+      const yc = m.t + i * rowH + rowH / 2;
+      [["--s-ceil", r.fs], ["--s-all", r.all], ["--s-agree", r.lo]].forEach(([v, val], jj) => {
+        const x0 = X(0), x1 = X(val), y = yc - (bh * 3 + 4) / 2 + jj * (bh + 2);
+        const w = Math.abs(x1 - x0);
+        if (w > 0.4) svg.append(el("path", { d: barPathH(Math.min(x0, x1), y, w, bh, 3, val >= 0),
+          fill: col(v) }));
+      });
+      const nm = el("text", { x: m.l - 12, y: yc + 3.5, "text-anchor": "end", class: "axis" });
+      nm.textContent = r.c + (r.rich ? " *" : ""); svg.append(nm);
+      const bt = el("text", { x: m.l + iw + 10, y: yc + 3.5, class: "val" });
+      bt.textContent = r.n_won + "/" + r.n; svg.append(bt);
+      const hit = el("rect", { x: 0, y: m.t + i * rowH, width: W, height: rowH, fill: "transparent" });
+      hit.addEventListener("mousemove", ev => showTip(ev,
+        r.c + DOT + "mean clearing " + r.clearing.toFixed(2) + " EUR/MWh", [
+          { c: col("--s-ceil"), l: "Perfect foresight", v: eur(r.fs) },
+          { c: col("--s-all"), l: "Buy everything", v: eur(r.all) },
+          { c: col("--s-agree"), l: "Agreement bid", v: eur(r.lo) },
+          { l: "bought / offered", v: r.n_won + " / " + r.n },
+        ]));
+      hit.addEventListener("mouseleave", hideTip);
+      svg.append(hit);
+    });
+    const at = el("text", { x: m.l + iw / 2, y: H - 8, "text-anchor": "middle", class: "axis" });
+    at.textContent = "EUR at 1 MW, whole window" + DOT + "* = a rich group corridor";
+    svg.append(at);
+    host.append(svg);
   }
 
-  function drawMatrix() {
-    const cell = (mar, cap) => C.matrix.find(r => r.mar === mar && r.cap === cap);
-    const box = (r, hi) => '<div class="cell' + (hi ? " hi" : "") + '"><b>' +
-      (r.mean === null ? "\u2014" : eur(r.mean)) + "</b><span>" + r.n +
-      " auctions \u00b7 total " + eur(r.total) + "</span></div>";
-    document.getElementById("mtx").innerHTML =
-      '<div class="hd"></div><div class="hd">Fundamental buys</div><div class="hd">Fundamental declines</div>' +
-      '<div class="hd">Margrabe buys</div>' + box(cell(true, true), true) + box(cell(true, false), false) +
-      '<div class="hd">Margrabe declines</div>' + box(cell(false, true), false) + box(cell(false, false), false);
+  /* ---------- accuracy ---------- */
+  function drawAcc() {
+    const host = document.getElementById("p-acc");
+    host.textContent = "";
+    const rows = D.accuracy;
+    const hue = { "Margrabe value": "--s-mar", "Fundamental p50": "--s-cap",
+                  "Fundamental bid": "--s-cap", "The lower of the two": "--s-agree",
+                  "Forward spread, floored": "--muted" };
+    const W = 1120, rowH = 40, m = { l: 212, r: 250, t: 24, b: 30 };
+    const ih = rows.length * rowH, H = ih + m.t + m.b, iw = W - m.l - m.r;
+    const hi = Math.max(...rows.map(r => r.mae)) * 1.06;
+    const X = v => m.l + v / hi * iw;
+    const svg = el("svg", { viewBox: "0 0 " + W + " " + H, role: "img",
+      "aria-label": "Mean absolute error of each value estimate against the realised value" });
+    for (const t of ticks(0, hi, 5)) {
+      svg.append(el("line", { class: "gridline", x1: X(t), x2: X(t), y1: m.t - 8, y2: m.t + ih }));
+      const tx = el("text", { x: X(t), y: m.t - 13, "text-anchor": "middle" });
+      tx.textContent = t.toFixed(1); svg.append(tx);
+    }
+    rows.forEach((r, i) => {
+      const yc = m.t + i * rowH + rowH / 2;
+      svg.append(el("path", { d: barPathH(m.l, yc - 6, X(r.mae) - m.l, 12, 4, true),
+        fill: col(hue[r.name] || "--muted") }));
+      const nm = el("text", { x: m.l - 12, y: yc + 3.5, "text-anchor": "end", class: "axis" });
+      nm.textContent = r.name; svg.append(nm);
+      const lb = el("text", { x: X(r.mae) + 10, y: yc + 3.5, class: "val" });
+      lb.setAttribute("fill", col("--ink"));
+      lb.textContent = "MAE " + r.mae.toFixed(2) + "   bias " + sgn2(r.me) +
+        "   r " + r.corr.toFixed(2);
+      svg.append(lb);
+    });
+    const at = el("text", { x: m.l + iw / 2, y: H - 6, "text-anchor": "middle", class: "axis" });
+    at.textContent = "Mean absolute error vs realised value" + DOT + "EUR/MWh"; svg.append(at);
+    host.append(svg);
+  }
 
-    const both = C.strategies.find(s => s.key === "both");
-    document.getElementById("cmp-scope").textContent =
-      C.meta.n + " auctions, " + C.meta.corridors + " corridors, " +
-      C.meta.first + " to " + C.meta.last;
-    document.getElementById("win-4").textContent =
-      C.meta.first + " to " + C.meta.last + " \u00b7 " + C.meta.n + " auctions";
-    const rMar = C.rules.find(r => r.name === "Margrabe alone");
-    const rCap = C.rules.find(r => r.name === "Fundamental alone");
-    const sign = v => v > 0 ? "clears zero" : "does not clear zero";
-    document.getElementById("cmp-lede").innerHTML =
-      "Cumulative, same auctions, same target. On this window the Margrabe rule " +
-      sign(rMar.total) + " at <b>" + eur(rMar.total) + "</b> and the fundamental rule " +
-      sign(rCap.total) + " at <b>" + eur(rCap.total) + "</b>.";
-    const x = C.meta.excluded;
-    document.getElementById("scope-window-text").innerHTML =
-      "Every number in this section is on a <b>shorter window</b> than the rest of the page. " +
-      "The fundamental book starts " + C.meta.first + ", so the join drops <b>" + x.n +
-      " auctions</b> from " + x.first + " to the month before " + x.last_before +
-      ". Those months were unusually good: <b>" + eur(x.all_eur) +
-      "</b> on buy-everything and " + eur(x.mdl_eur) + " on the Margrabe rule. " +
-      "So the same rule reads " + eur(C.rules.find(r => r.name === "Margrabe alone").total) +
-      " here against " + eur(M.mdl_total) + " above, and buy-everything reads " +
-      eur(C.rules.find(r => r.name === "Buy everything").total) + " against " + eur(M.all_total) +
-      " \u2014 the difference is entirely the missing months (" +
-      eur(C.rules.find(r => r.name === "Buy everything").total) + " + " + eur(x.all_eur) + " = " +
-      eur(M.all_total) + "), not a different calculation. Read across sections only with that in mind.";
-    document.getElementById("cmp-caveat").innerHTML =
-      "Read the agreement result with the same discount as everything else on this page: " +
-      "<b>t = " + both.t.toFixed(2) + "</b> on " + both.n + " auctions. With DE-AT/AT-DE removed it is still " +
-      "<b>" + eur(both.ex_total) + "</b> over " + both.ex_n + ". " +
-      "That is the correction to an earlier version of this page: DE-AT alone was NOT the whole story, " +
-      "because the German-Czech corridors are a second and larger source. Remove both groups and it is " +
-      "<b>" + eur(both.ex2_total) + "</b> over " + both.ex2_n + " &mdash; a loss. " +
-      "So the ordering is what survives: on the borders where the auction left nothing, agreement loses " +
-      eur(both.ex2_total / both.ex2_n) + " per auction against " +
-      eur(C.strategies[0].ex2_total / C.strategies[0].ex2_n) + " for buying everything.";
+  /* ---------- table ---------- */
+  function drawTable() {
+    const t = document.getElementById("tbl");
+    let h = "<thead><tr><th>Delivery</th><th>Hours</th><th>Offered</th>" +
+      '<th><i class="c-ceil"></i>Foresight</th><th>n</th>' +
+      '<th><i class="c-all"></i>Buy all</th>' +
+      '<th><i class="c-agree"></i>Agreement</th><th>n</th>' +
+      "<th>Agreement EUR/MWh</th></tr></thead><tbody>";
+    for (const r of D.full) {
+      h += "<tr><td>" + r.m + "</td><td>" + r.hours + "</td><td>" + r.n + "</td>" +
+        "<td>" + eur(r.fs_eur) + "</td><td>" + r.fs_n + "</td>" +
+        "<td>" + eur(r.all_eur) + "</td>" +
+        "<td>" + eur(r.lo_eur) + "</td><td>" + r.lo_n + "</td>" +
+        "<td>" + (r.lo_mwh === null ? DASH : sgn2(r.lo_mwh)) + "</td></tr>";
+    }
+    /* totals from meta, which rounds once. Re-summing the rounded monthly cells
+       drifts a euro from the KPI strip and reads as an error. */
+    h += "</tbody><tfoot><tr><td>Total</td><td></td><td>" + M.n + "</td>" +
+      "<td>" + eur(M.fs_total) + "</td><td>" + M.fs_n + "</td>" +
+      "<td>" + eur(M.all_total) + "</td>" +
+      "<td>" + eur(M.lo_total) + "</td><td>" + M.lo_n + "</td>" +
+      "<td>" + sgn2(M.lo_mwh) + "</td></tr></tfoot>";
+    t.innerHTML = h;
+  }
+
+  /* ---------- prose that must never go stale ---------- */
+  function drawNotes() {
+    const rich = D.corridors.filter(c => c.rich);
+    const richLo = rich.reduce((a, c) => a + c.lo, 0);
+    const top = D.corridors.slice().sort((a, b) => b.all - a.all)[0];
+    const saved = D.corridors.filter(c => c.all < 0 && c.lo > 0);
+    document.getElementById("corr-note").innerHTML =
+      "Sorted by what the agreement bid earned. Corridors marked <code>*</code> are the rich groups; " +
+      "they carry <b>" + eur(richLo) + "</b> of the rule&rsquo;s " + eur(M.lo_total) +
+      ", and the largest single source on buy-everything is <code>" + top.c + "</code> at " +
+      eur(top.all) + ". The instructive rows are the <b>" + saved.length +
+      "</b> where buying blind loses money and the rule still earns" +
+      (saved.length ? " (" + saved.slice(0, 4).map(c => c.c).join(", ") +
+        (saved.length > 4 ? ", \u2026" : "") + ")" : "") +
+      " &mdash; that is refusal doing the work, not valuation.";
+
+    document.getElementById("foot").innerHTML =
+      "Spot: SK from OKTE <code>/dam/results</code>, every other zone from ENTSO-E day-ahead, hourly UTC " +
+      "across the 2025-10-01 quarter-hour switch. Forwards: EEX monthly BASE settlements decoded through " +
+      "the short codes in <code>plumbing/eex/catalog.md</code>, last close strictly before each " +
+      "gate&rsquo;s day. Auctions: JAO monthly results via <code>plumbing.jao_auctions</code>. " +
+      "Fundamental book: <code>" + M.source + "</code>. Sigma is fitted on 12 monthly means per " +
+      "<code>capacity_class.capa_fit</code>, unmodified. Reproduce with " +
+      "<code>python run_capacity.py bid --window 12 &amp;&amp; python build_chart.py</code>. " +
+      "On the bought set the agreement bid earns " + sgn2(M.lo_mwh) + " EUR/MWh at <b>t = " +
+      sgn2(M.lo_mwh_t) + "</b> and a hit rate of " + M.lo_hit.toFixed(1) + "%. A correlation between the rule&rsquo;s " +
+      "edge over the clearing price and realised P&amp;L is deliberately NOT quoted: both terms contain " +
+      "the clearing price, so var(clearing) inflates it mechanically. The clean measure is the " +
+      "value-vs-realised r in the accuracy panel above. Excluding the rich groups the rule earns " +
+      eur(M.ex_mean) + " per auction against " +
+      eur(M.ex_all_mean) + " for buying everything &mdash; better, still negative. Treat none of this " +
+      "as established.";
   }
 
   function drawAll() {
-    drawMonth(); drawCum(); drawCorr(); drawTable();
-    if (C) {
-      document.getElementById("s-cmp").hidden = false;
-      legend("lg4", CMP);
-      drawAcc(); drawCmp(); drawRules(); drawMatrix();
-    }
+    legend("lg1", BARS.map(s => ({ ...s, sq: true })));
+    legend("lg2", LINES.concat([{ name: "Agreement bid, ex rich groups", v: "--s-agree", dash: "4 3" }]));
+    legend("lg3", BARS.map(s => ({ ...s, sq: true })));
+    drawKpis(); drawRules(); drawMatrix(); drawMonth(); drawCum(); drawCorr(); drawAcc();
+    drawTable(); drawNotes();
   }
   drawAll();
   let rt;

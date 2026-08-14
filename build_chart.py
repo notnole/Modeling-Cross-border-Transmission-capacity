@@ -4,9 +4,16 @@ Same pattern as projects/capacities/build_chart.py: the template holds a
 `__DATA__` placeholder and this inlines the JSON, because an Artifact's CSP
 blocks every external fetch.
 
-Data comes from `run_capacity.py bid`, which writes outputs/bids_w12.csv; this
-script aggregates it into the three monthly series (model bid / buy everything /
-perfect foresight) plus the per-corridor totals.
+The page's subject is the **agreement bid** — one order at the LOWER of two
+independent fair values, the forward-vol Margrabe model and the capacities
+fundamental LGBM model. Because JAO monthly auctions are marginal-priced, that is
+identical to "buy only where both models clear the price": `min(a,b) >= c` iff
+both `a >= c` and `b >= c`, and you pay `c` either way.
+
+That choice of subject sets the scope. The rule only exists where both books
+carry a value, so **the whole page runs on the joined set** — one window
+throughout, rather than a full book in some sections and the join in others,
+which is what made earlier versions look self-contradictory.
 
 Run:  python run_capacity.py bid --window 12 && python build_chart.py
 """
@@ -20,12 +27,13 @@ import pandas as pd
 
 HERE = Path(__file__).parent
 OUT = HERE / "outputs"
-# The two border groups where the auction left money on the table. Excluding
-# BOTH is the honest control: excluding only DE-AT understates the model,
-# because the German-Czech corridors are a second, larger source.
-RICH_BORDERS = ["de_at", "at_de", "de_cz", "cz_de"]
-# the fundamental model's own bid book, for the head-to-head. Its `bid` is the
-# LGBM predicted-value p50 times a calibration factor k.
+
+# The border groups where the auction left money on the table regardless of any
+# model. Excluding BOTH is the honest control: excluding only DE-AT understates
+# the rule, because the German-Czech corridors are a second, larger source.
+RICH = ["DE-AT", "AT-DE", "DE(50Hz)-CZ", "DE(TenneT)-CZ", "CZ-DE(50Hz)", "CZ-DE(TenneT)"]
+
+
 def _cap_bids() -> Path | None:
     """Freshest fundamental bid book. Prefer a local same-vintage copy (pulled
     from the box run) over the sibling project's older committed one."""
@@ -36,126 +44,100 @@ def _cap_bids() -> Path | None:
     return sib if sib.exists() else None
 
 
-CAP_BIDS = _cap_bids()
+def _t(e: pd.Series) -> float | None:
+    return round(float(e.mean() / (e.std(ddof=1) / np.sqrt(len(e)))), 2) if len(e) > 1 else None
 
 
-def _tstat(e: pd.Series) -> float:
-    return float(e.mean() / (e.std(ddof=1) / np.sqrt(len(e)))) if len(e) > 1 else float("nan")
+def load_joined() -> tuple[pd.DataFrame, str]:
+    """One row per auction that BOTH models priced, with every rule's flag.
+
+    Joined on (corridor, delivery month) — never on a corridor name rebuilt from
+    a zone pair, which cannot produce the TSO-split German names. Both models are
+    scored against THIS project's realised values so the target is identical; the
+    two agree to 0.016 EUR/MWh mean from independent price pulls anyway.
+    """
+    src = _cap_bids()
+    if src is None:
+        raise SystemExit("no fundamental bid book found")
+    cap = pd.read_csv(src)
+    mar = pd.read_csv(OUT / "bids_w12.csv")
+
+    j = (cap[["corridor", "month", "p50", "bid"]]
+         .merge(mar[["corridor", "delivery_month", "value", "clearing", "intrinsic",
+                     "realised_value", "realised_hours", "sigma"]],
+                left_on=["corridor", "month"], right_on=["corridor", "delivery_month"])
+         .dropna(subset=["clearing", "realised_value", "bid"]))
+
+    j["pnl_mwh"] = j["realised_value"] - j["clearing"]
+    j["pnl_eur"] = j["pnl_mwh"] * j["realised_hours"]      # 1 MW for the month
+    j["lo"] = j[["value", "bid"]].min(axis=1)
+    j["avg"] = j[["value", "bid"]].mean(axis=1)
+    j["hi"] = j[["value", "bid"]].max(axis=1)
+    j["buy_mar"] = j["value"] >= j["clearing"]
+    j["buy_cap"] = j["bid"] >= j["clearing"]
+    j["buy_lo"] = j["lo"] >= j["clearing"]                 # the subject
+    j["buy_avg"] = j["avg"] >= j["clearing"]
+    j["buy_hi"] = j["hi"] >= j["clearing"]
+    j["fs"] = j["pnl_mwh"] > 0                             # perfect foresight
+    j["rich"] = j["corridor"].isin(RICH)
+    return j.sort_values(["delivery_month", "corridor"]).reset_index(drop=True), src.name
 
 
 def monthly(sub: pd.DataFrame) -> list[dict]:
     rows = []
     for m, g in sub.groupby("delivery_month"):
-        won, fs = g[g["won"]], g[g["fs"]]
         rows.append(dict(
-            m=m, n=len(g), hours=int(g["realised_hours"].iloc[0]),
+            m=str(m), n=len(g), hours=int(g["realised_hours"].iloc[0]),
             all_eur=round(g["pnl_eur"].sum(), 1), all_n=len(g),
-            mdl_eur=round(won["pnl_eur"].sum(), 1), mdl_n=int(len(won)),
-            fs_eur=round(fs["pnl_eur"].sum(), 1), fs_n=int(len(fs)),
-            mdl_mwh=round(won["pnl_mwh"].mean(), 2) if len(won) else None,
+            lo_eur=round(g.loc[g["buy_lo"], "pnl_eur"].sum(), 1), lo_n=int(g["buy_lo"].sum()),
+            mar_eur=round(g.loc[g["buy_mar"], "pnl_eur"].sum(), 1),
+            cap_eur=round(g.loc[g["buy_cap"], "pnl_eur"].sum(), 1),
+            fs_eur=round(g.loc[g["fs"], "pnl_eur"].sum(), 1), fs_n=int(g["fs"].sum()),
+            lo_mwh=round(g.loc[g["buy_lo"], "pnl_mwh"].mean(), 2) if g["buy_lo"].any() else None,
         ))
     return rows
 
 
-def compare(s: pd.DataFrame) -> dict | None:
-    """Head-to-head against projects/capacities' fundamental LGBM bid book.
+def main() -> None:
+    j, src = load_joined()
+    full = monthly(j)
+    ex = monthly(j[~j["rich"]])
 
-    Joined on (corridor, delivery month). Both strategies are scored against
-    THIS project's realised values so the target is identical — the two
-    projects agree to 0.016 EUR/MWh mean anyway, computing the same
-    `spread.clip(lower=0).mean()` over the delivery window from independent
-    price pulls. The two exceptions: capacities' CZ-SK 2025-07 is 1.57 lower
-    (its price file has NaN hours there, which its dropna() removes), and DST
-    months differ by the one repeated CET hour its window counts.
-    """
-    if CAP_BIDS is None or not CAP_BIDS.exists():
-        print(f"skip comparison: {CAP_BIDS} not found")
-        return None
-    cap = pd.read_csv(CAP_BIDS)
-    # join on the real corridor column: reconstructing it from the zone pair
-    # cannot produce the TSO-split German names (`DE(50Hz)-CZ`).
-    m = s.copy()
-    j = (cap[["corridor", "month", "clearing", "p50", "bid"]]
-         .merge(m[["corridor", "delivery_month", "value", "clearing", "intrinsic",
-                   "realised_value", "realised_hours", "pnl_eur"]],
-                left_on=["corridor", "month"], right_on=["corridor", "delivery_month"],
-                suffixes=("_cap", ""))
-         .dropna(subset=["clearing", "realised_value", "bid"]))
-    if j.empty:
-        return None
+    corr = []
+    for c, g in j.groupby("corridor"):
+        corr.append(dict(
+            c=c, n=len(g), n_won=int(g["buy_lo"].sum()),
+            all=round(g["pnl_eur"].sum(), 1),
+            lo=round(g.loc[g["buy_lo"], "pnl_eur"].sum(), 1),
+            fs=round(g.loc[g["fs"], "pnl_eur"].sum(), 1),
+            clearing=round(g["clearing"].mean(), 2),
+            rich=bool(g["rich"].iloc[0])))
 
-    j["buy_mar"] = j["value"] >= j["clearing"]
-    j["buy_cap"] = j["bid"] >= j["clearing"]
-    j["buy_both"] = j["buy_mar"] & j["buy_cap"]
-    j["fs"] = j["realised_value"] > j["clearing"]
-    ex = ~j["corridor"].isin(["DE-AT", "AT-DE"])
-    ex_both = ex & ~j["corridor"].str.contains(r"DE\(", regex=True)
-
-    def tot(mask):
-        e = j.loc[mask, "pnl_eur"]
-        t = (e.mean() / (e.std(ddof=1) / np.sqrt(len(e)))) if len(e) > 1 else None
-        return dict(n=int(len(e)), total=round(e.sum(), 1),
-                    mean=round(e.mean(), 1) if len(e) else 0.0,
-                    t=round(t, 2) if t is not None else None,
-                    hit=round(100 * (e > 0).mean(), 1) if len(e) else 0.0,
-                    ex_n=int(mask.__and__(ex).sum()),
-                    ex_total=round(j.loc[mask & ex, "pnl_eur"].sum(), 1),
-                    ex2_n=int(mask.__and__(ex_both).sum()),
-                    ex2_total=round(j.loc[mask & ex_both, "pnl_eur"].sum(), 1))
-
-    strategies = [
-        dict(key="all",  name="Buy everything",  v="--s-all",   **tot(pd.Series(True, index=j.index))),
-        dict(key="cap",  name="Fundamental bid", v="--s-cap",   **tot(j["buy_cap"])),
-        dict(key="mar",  name="Margrabe bid",    v="--s-model", **tot(j["buy_mar"])),
-        dict(key="both", name="Both agree",      v="--s-both",  **tot(j["buy_both"])),
-    ]
-    accuracy = []
-    for name, c in (("Margrabe value", "value"), ("Fundamental p50", "p50"),
-                    ("Fundamental bid (p50 x k)", "bid"), ("Forward spread, floored", "intrinsic")):
-        e = j[c] - j["realised_value"]
-        accuracy.append(dict(name=name, me=round(e.mean(), 2), mae=round(e.abs().mean(), 2),
-                             corr=round(j[c].corr(j["realised_value"]), 3)))
-
-    # min / mean / max of the two fair values. Because JAO is marginal-priced
-    # the bid level only selects the win set, and these three are NESTED:
-    # lower subset average subset max. So the marginal auction each relaxation
-    # admits can be priced on its own.
-    j["lo"] = j[["value", "bid"]].min(axis=1)
-    j["avg"] = j[["value", "bid"]].mean(axis=1)
-    j["hi"] = j[["value", "bid"]].max(axis=1)
+    # the strictness ladder. Nested by construction: lower subset average subset max.
     rules = []
     for name, mask, note in (
             ("Buy everything", pd.Series(True, index=j.index), "accept any price"),
-            ("MAX of the two", j["hi"] >= j["clearing"], "either model clears"),
+            ("MAX of the two", j["buy_hi"], "either model clears"),
             ("Fundamental alone", j["buy_cap"], "its bid clears"),
-            ("AVERAGE of the two", j["avg"] >= j["clearing"], "the average clears"),
+            ("AVERAGE of the two", j["buy_avg"], "the average clears"),
             ("Margrabe alone", j["buy_mar"], "its value clears"),
-            ("LOWER of the two", j["lo"] >= j["clearing"], "both models clear"),
+            ("LOWER of the two", j["buy_lo"], "both models clear"),
             ("Perfect foresight", j["fs"], "the ceiling")):
         e = j.loc[mask, "pnl_eur"]
-        t = (e.mean() / (e.std(ddof=1) / np.sqrt(len(e)))) if len(e) > 1 else None
         rules.append(dict(name=name, note=note, n=int(len(e)),
-                          total=round(e.sum(), 1), mean=round(e.mean(), 1),
-                          t=round(t, 2) if t is not None else None,
+                          total=round(e.sum(), 1), mean=round(e.mean(), 1), t=_t(e),
                           hit=round(100 * (e > 0).mean(), 1),
-                          ex_n=int((mask & ex_both).sum()),
-                          ex_mean=round(j.loc[mask & ex_both, "pnl_eur"].mean(), 1)
-                          if (mask & ex_both).any() else None))
-    marg = []
-    for name, inner, outer in (("average, beyond lower", j["lo"] >= j["clearing"], j["avg"] >= j["clearing"]),
-                               ("max, beyond average", j["avg"] >= j["clearing"], j["hi"] >= j["clearing"])):
-        e = j.loc[outer & ~inner, "pnl_eur"]
-        marg.append(dict(name=name, n=int(len(e)),
-                         total=round(e.sum(), 1), mean=round(e.mean(), 1) if len(e) else None,
-                         hit=round(100 * (e > 0).mean(), 1) if len(e) else None))
+                          ex_n=int((mask & ~j["rich"]).sum()),
+                          ex_mean=round(j.loc[mask & ~j["rich"], "pnl_eur"].mean(), 1)
+                          if (mask & ~j["rich"]).any() else None))
 
-    monthly = []
-    for mo, g in j.groupby("delivery_month"):
-        monthly.append(dict(m=mo,
-                            all=round(g["pnl_eur"].sum(), 1),
-                            cap=round(g.loc[g["buy_cap"], "pnl_eur"].sum(), 1),
-                            mar=round(g.loc[g["buy_mar"], "pnl_eur"].sum(), 1),
-                            both=round(g.loc[g["buy_both"], "pnl_eur"].sum(), 1)))
+    marg = []
+    for name, inner, outer in (("average, beyond lower", j["buy_lo"], j["buy_avg"]),
+                               ("max, beyond average", j["buy_avg"], j["buy_hi"])):
+        e = j.loc[outer & ~inner, "pnl_eur"]
+        marg.append(dict(name=name, n=int(len(e)), total=round(e.sum(), 1),
+                         mean=round(e.mean(), 1) if len(e) else None,
+                         hit=round(100 * (e > 0).mean(), 1) if len(e) else None))
 
     matrix = []
     for mb in (True, False):
@@ -165,67 +147,41 @@ def compare(s: pd.DataFrame) -> dict | None:
                                mean=round(e.mean(), 1) if len(e) else None,
                                total=round(e.sum(), 1) if len(e) else 0.0))
 
-    # The comparison window is SHORTER than the rest of the page: the
-    # fundamental book starts 2025-02. Same-named rules therefore carry
-    # different totals in different sections, so ship the reconciliation.
-    return dict(strategies=strategies, accuracy=accuracy, monthly=monthly, matrix=matrix,
-                rules=rules, marginal=marg,
-                meta=dict(n=len(j), months=int(j["delivery_month"].nunique()),
-                          corridors=int(j["corridor"].nunique()),
-                          first=min(monthly, key=lambda r: r["m"])["m"],
-                          last=max(monthly, key=lambda r: r["m"])["m"],
-                          ceiling=round(j.loc[j["fs"], "pnl_eur"].sum(), 1),
-                          ex_ceiling=round(j.loc[j["fs"] & ex, "pnl_eur"].sum(), 1),
-                          ex2_ceiling=round(j.loc[j["fs"] & ex_both, "pnl_eur"].sum(), 1),
-                          corridor_list=sorted(j["corridor"].unique()),
-                          source=CAP_BIDS.name))
+    accuracy = []
+    for name, col in (("Margrabe value", "value"), ("Fundamental p50", "p50"),
+                      ("Fundamental bid", "bid"), ("The lower of the two", "lo"),
+                      ("Forward spread, floored", "intrinsic")):
+        e = j[col] - j["realised_value"]
+        accuracy.append(dict(name=name, me=round(e.mean(), 2), mae=round(e.abs().mean(), 2),
+                             corr=round(j[col].corr(j["realised_value"]), 3)))
 
+    lo = j[j["buy_lo"]]
+    exlo = j[j["buy_lo"] & ~j["rich"]]
+    meta = dict(
+        source=src, n=len(j), months=len(full), corridors=int(j["corridor"].nunique()),
+        first=full[0]["m"], last=full[-1]["m"],
+        all_total=round(j["pnl_eur"].sum(), 1),
+        lo_total=round(lo["pnl_eur"].sum(), 1), lo_n=int(len(lo)),
+        fs_total=round(j.loc[j["fs"], "pnl_eur"].sum(), 1), fs_n=int(j["fs"].sum()),
+        mar_total=round(j.loc[j["buy_mar"], "pnl_eur"].sum(), 1),
+        mar_n=int(j["buy_mar"].sum()),
+        cap_total=round(j.loc[j["buy_cap"], "pnl_eur"].sum(), 1),
+        cap_n=int(j["buy_cap"].sum()),
+        lo_mwh=round(lo["pnl_mwh"].mean(), 2), lo_mwh_t=_t(lo["pnl_mwh"]),
+        lo_eur_t=_t(lo["pnl_eur"]),
+        lo_hit=round(100 * (lo["pnl_eur"] > 0).mean(), 1),
+        ex_total=round(exlo["pnl_eur"].sum(), 1), ex_n=int(len(exlo)),
+        ex_mean=round(exlo["pnl_eur"].mean(), 1) if len(exlo) else None,
+        ex_all_total=round(j.loc[~j["rich"], "pnl_eur"].sum(), 1),
+        ex_all_n=int((~j["rich"]).sum()),
+        ex_all_mean=round(j.loc[~j["rich"], "pnl_eur"].mean(), 1),
+        edge_corr=round((j["lo"] - j["clearing"]).corr(j["pnl_mwh"]), 3),
+        months_pos=int(sum(1 for r in full if r["lo_eur"] > 0)),
+        months_pos_all=int(sum(1 for r in full if r["all_eur"] > 0)),
+    )
 
-def main() -> None:
-    b = pd.read_csv(OUT / "bids_w12.csv")
-    s = b.dropna(subset=["clearing", "realised_value"]).copy()
-    # P&L of one right, at 1 MW, over its delivery month
-    s["pnl_mwh"] = s["realised_value"] - s["clearing"]
-    s["pnl_eur"] = s["pnl_mwh"] * s["realised_hours"]
-    s["won"] = s["value"] >= s["clearing"]      # bid = model fair value, margin 0
-    s["fs"] = s["pnl_mwh"] > 0                  # perfect foresight buys only winners
-
-    full = monthly(s)
-    ex = monthly(s[~s["border"].isin(RICH_BORDERS)])
-
-    corr = []
-    for bd, g in s.groupby("corridor"):
-        corr.append(dict(
-            c=bd, n=len(g), n_won=int(g["won"].sum()),
-            all=round(g["pnl_eur"].sum(), 1),
-            mdl=round(g.loc[g["won"], "pnl_eur"].sum(), 1),
-            fs=round(g.loc[g["fs"], "pnl_eur"].sum(), 1),
-            clearing=round(g["clearing"].mean(), 2)))
-
-    cmp = compare(s)
-    # what the comparison window leaves out, so the two scopes reconcile on the page
-    if cmp:
-        cut = cmp["meta"]["first"]
-        e = s[s["delivery_month"] < cut]
-        cmp["meta"]["excluded"] = dict(
-            n=int(len(e)), first=str(s["delivery_month"].min()), last_before=cut,
-            all_eur=round(e["pnl_eur"].sum(), 1),
-            mdl_eur=round(e.loc[e["won"], "pnl_eur"].sum(), 1),
-            fs_eur=round(e.loc[e["fs"], "pnl_eur"].sum(), 1))
-
-    data = dict(
-        full=full, ex_deat=ex, corridors=corr, compare=cmp,
-        meta=dict(n=len(s), months=len(full),
-                  corridors=int(s["corridor"].nunique()),
-                  zone_pairs=int(s["border"].nunique()),
-                  first=full[0]["m"], last=full[-1]["m"],
-                  all_total=round(s["pnl_eur"].sum(), 1),
-                  mdl_total=round(s.loc[s["won"], "pnl_eur"].sum(), 1),
-                  fs_total=round(s.loc[s["fs"], "pnl_eur"].sum(), 1),
-                  mdl_n=int(s["won"].sum()), fs_n=int(s["fs"].sum()),
-                  mdl_mwh=round((s.loc[s["won"], "pnl_mwh"]).mean(), 2),
-                  mdl_mwh_t=round(_tstat(s.loc[s["won"], "pnl_mwh"]), 2),
-                  edge_corr=round((s["value"] - s["clearing"]).corr(s["pnl_mwh"]), 3)))
+    data = dict(full=full, ex_rich=ex, corridors=corr, rules=rules,
+                marginal=marg, matrix=matrix, accuracy=accuracy, meta=meta)
 
     OUT.mkdir(exist_ok=True)
     (OUT / "chart_data.json").write_text(json.dumps(data), encoding="utf-8")
@@ -238,9 +194,9 @@ def main() -> None:
         raise SystemExit("JSON contains '</script' and would break out of the script tag")
 
     page = tpl.replace("__DATA__", blob)
-    # ASCII guard. The published page is body-level content, so it cannot carry
-    # a <meta charset> and a host that serves it as latin-1 renders every
-    # multi-byte character as mojibake. Entities in HTML, \uXXXX in JS. This has
+    # ASCII guard. The published page is body-level content, so it cannot carry a
+    # <meta charset> and a host serving it as latin-1 renders every multi-byte
+    # character as mojibake. Entities in HTML, backslash-uXXXX in JS. This
     # regressed three times; fail the build instead.
     bad = sorted({hex(ord(c)) for c in page if ord(c) > 127})
     if bad:
@@ -253,11 +209,14 @@ def main() -> None:
     out = OUT / "profitability.html"
     out.write_text(page, encoding="utf-8")
     print(f"wrote {out} ({out.stat().st_size} bytes)")
-    print(f"months {data['meta']['first']} -> {data['meta']['last']}, "
-          f"{data['meta']['n']} rights, {data['meta']['corridors']} corridors")
-    print(f"model {data['meta']['mdl_total']:+,.0f}  "
-          f"buy-all {data['meta']['all_total']:+,.0f}  "
-          f"foresight {data['meta']['fs_total']:+,.0f} EUR")
+    print(f"fundamental book: {src}")
+    print(f"{meta['n']} auctions, {meta['corridors']} corridors, "
+          f"{meta['first']} -> {meta['last']}")
+    print(f"agreement bid {meta['lo_total']:+,.0f} over {meta['lo_n']}  |  "
+          f"buy-everything {meta['all_total']:+,.0f} over {meta['n']}  |  "
+          f"ceiling {meta['fs_total']:+,.0f}")
+    print(f"ex rich: agreement {meta['ex_total']:+,.0f} over {meta['ex_n']}, "
+          f"buy-everything {meta['ex_all_total']:+,.0f} over {meta['ex_all_n']}")
 
 
 if __name__ == "__main__":
