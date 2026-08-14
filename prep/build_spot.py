@@ -43,7 +43,7 @@ DATA = ROOT / "Data"
 PARQUET = DATA / "spot_hourly.parquet"
 CSV = DATA / "spot_current.csv"
 
-ZONES = ("sk", "cz", "hu", "at", "de", "ro", "pl")
+ZONES = ("sk", "cz", "hu", "at", "de", "ro", "pl", "fr", "nl", "it", "gr")
 
 
 def _month_starts(start: str, end: str) -> list[tuple[str, str]]:

@@ -34,6 +34,7 @@ import argparse
 import sys
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -57,16 +58,30 @@ def load_long(xlsx: Path) -> pd.DataFrame:
     df["zone"] = df["root"].map(EEX_ROOT_TO_ZONE)
     df["close"] = pd.to_numeric(df["CurrentValues"], errors="coerce")
 
-    m = df[(df["mat"] == "M") & df["zone"].notna() & (df["close"] > 0)].copy()
-    m["delivery_month"] = pd.to_datetime(
-        m["year"] + "-" + m["period"].str.zfill(2) + "-01"
-    ).dt.to_period("M")
-    m["trade_date"] = df["DateTime"].dt.tz_convert("UTC").dt.normalize()
+    df["trade_date"] = df["DateTime"].dt.tz_convert("UTC").dt.normalize()
+    keep = df[df["zone"].notna() & (df["close"] > 0)
+              & df["mat"].isin(["M", "Q", "Y"])].copy()
 
-    out = (m[["trade_date", "zone", "delivery_month", "close"]]
-           .drop_duplicates(subset=["trade_date", "zone", "delivery_month"], keep="last")
-           .sort_values(["trade_date", "delivery_month", "zone"])
+    # One `delivery` label per maturity, plus the first delivery month so a
+    # caller can order and window them uniformly.
+    #   M -> 2026-09      Q -> 2026-Q4      Y -> 2027
+    yr = keep["year"].astype(str)
+    per = keep["period"].fillna("1").astype(str)
+    mm = per.str.zfill(2)                                  # month, for mat == M
+    qm = ((per.astype(int) - 1) * 3 + 1).map(lambda k: f"{k:02d}")   # quarter -> first month
+    keep["delivery"] = np.select(
+        [keep["mat"] == "M", keep["mat"] == "Q"],
+        [yr + "-" + mm, yr + "-Q" + per], default=yr)
+    keep["first_month"] = pd.PeriodIndex(np.select(
+        [keep["mat"] == "M", keep["mat"] == "Q"],
+        [yr + "-" + mm, yr + "-" + qm], default=yr + "-01"), freq="M")
+
+    out = (keep[["trade_date", "zone", "mat", "delivery", "first_month", "close"]]
+           .drop_duplicates(subset=["trade_date", "zone", "mat", "delivery"], keep="last")
+           .sort_values(["trade_date", "mat", "first_month", "zone"])
            .reset_index(drop=True))
+    # monthly view keeps the old column name so existing callers do not change
+    out["delivery_month"] = out["delivery"].where(out["mat"] == "M")
     return out
 
 
@@ -76,20 +91,27 @@ def main() -> None:
     ap.add_argument("--month", default=None, help="delivery month YYYY-MM for fwd_price.csv")
     args = ap.parse_args()
 
-    long = load_long(args.xlsx)
+    allmat = load_long(args.xlsx)
     DATA.mkdir(exist_ok=True)
+    allmat.to_csv(DATA / "fwd_all.csv", index=False)
+    long = allmat[allmat["mat"] == "M"].copy()
     long.to_csv(DATA / "fwd_monthly.csv", index=False)
+    print("closes per maturity:")
+    print(allmat.groupby("mat").agg(rows=("close", "size"), zones=("zone", "nunique"),
+                                    dates=("trade_date", "nunique"),
+                                    contracts=("delivery", "nunique")).to_string())
+    print()
 
     last = long["trade_date"].max()
     board = long[long["trade_date"] == last]
     print(f"{len(long)} monthly closes, {long['zone'].nunique()} zones, "
           f"trade dates {long['trade_date'].min().date()} -> {last.date()}")
     print("\nboard on the last trade date (EUR/MWh, BASE):")
-    piv = board.pivot(index="delivery_month", columns="zone", values="close")
+    piv = board.pivot(index="delivery", columns="zone", values="close")
     print(piv.round(2).to_string())
 
     month = args.month or str(piv.index[0])
-    row = long[(long["delivery_month"] == pd.Period(month, "M"))]
+    row = long[long["delivery"] == month]
     wide = row.pivot(index="trade_date", columns="zone", values="close")
     wide.index = wide.index.strftime("%m/%d/%y")
     wide.index.name = "date"

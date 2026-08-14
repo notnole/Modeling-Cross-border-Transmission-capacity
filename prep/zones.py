@@ -33,6 +33,7 @@ ZONE_TO_ENTSOE = {
     "it": "IT_NORD",
     "fr": "FR",
     "nl": "NL",
+    "gr": "GR",
 }
 
 # SK comes from OKTE (the source of truth for the Slovak DAM print), every
@@ -52,7 +53,19 @@ PRICEABLE_BORDERS = [
     # rank-4 tier-A pick for 2026-09, so leaving it out was a real miss.
     "at_cz", "cz_at",
     "at_hu", "hu_at",
+    "de_fr", "fr_de",
+    "de_nl", "nl_de",
 ]
+
+# NOT wired, and the reason is a basis mismatch rather than missing data.
+# `AT-IT`, `IT-AT`, `FR-IT`, `IT-FR` all land in **IT_NORD** and `GR-IT` in
+# **IT_SUD**, but EEX lists exactly ONE Italian root (`FD`) - a national
+# contract. Pricing a national forward against a zonal spot is the error
+# capacities measured at up to 12x on IT-FR, so these four need a basis decision
+# (proxy the zone, or model the zone-to-national spread), not a map entry.
+IT_BASIS_BLOCKED = ["AT-IT", "IT-AT", "FR-IT", "IT-FR", "GR-IT", "IT-GR"]
+# GR is a dead end for a different reason: its only corridors are GR-BG (BG has
+# no monthly history in the workbook) and GR-IT (IT_SUD, worse basis problem).
 
 # JAO auction corridor -> the zone pair that prices it. This is a MANY-TO-ONE
 # map and that is the whole point: `CZ-DE` / `DE-CZ` run no monthly auction, but
@@ -80,6 +93,11 @@ CORRIDOR_TO_BORDER = {
     "HU-RO": "hu_ro", "RO-HU": "ro_hu",
     "AT-CZ": "at_cz", "CZ-AT": "cz_at",
     "AT-HU": "at_hu", "HU-AT": "hu_at",
+    # FR and NL: single-zone nationals, so the EEX contract and the ENTSO-E spot
+    # are the same thing. Full monthly history in the workbook (fr 1313 trade
+    # dates, nl 1200), so these four backtest immediately.
+    "DE-FR": "de_fr", "FR-DE": "fr_de",
+    "DE-NL": "de_nl", "NL-DE": "nl_de",
     "DE(50Hz)-CZ": "de_cz", "DE(TenneT)-CZ": "de_cz",
     "CZ-DE(50Hz)": "cz_de", "CZ-DE(TenneT)": "cz_de",
 }

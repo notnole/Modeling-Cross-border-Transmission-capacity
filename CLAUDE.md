@@ -178,29 +178,84 @@ bid never moves the clearing price — plausible at small MW against
 derating the `capacities` project models), and 24 delivery months on 8 corridors
 is a small sample with P&L correlated across corridors within a month.
 
+## The workbook's monthly history is ample — a correction
+
+An earlier version of this file said "the binding constraint is forward history".
+That conflated **depth** with **breadth**, and only breadth is a constraint.
+
+Measured on `Data/fwd_monthly.csv` (77,195 closes):
+
+- **1,313 trade dates**, 2023-01-02 → 2026-08-06, and the **max gap between
+  consecutive boards is 1 day** for every zone except RO (one 3-day gap). The
+  workbook carries a board on essentially every calendar day, which is also why
+  it has non-trading-day rows where every settlement is 0.
+- **100% of (delivery month, zone) pairs — 3,328 of 3,328 — have a close strictly
+  before the gate day.** Depth is a solved problem.
+
+The real gap is which zones the workbook contains: `at cz de fr gr hu it nl ro
+sk`. Missing `be bg hr pl si`, and that is a zone-absence problem, not a history
+problem.
+
+### FR and NL wired; Italy deliberately not
+
+`fr` (1,313 trade dates) and `nl` (1,200 from 2023-04-25) had full monthly
+history sitting unused. Adding them cost one `prep/add_zones.py` spot pull and
+four map entries, and unlocked **DE-FR, FR-DE, DE-NL, NL-DE**. Book is now
+**20 corridors / 482 cleared auctions**.
+
+Italy is **blocked on basis, not data** (`zones.IT_BASIS_BLOCKED`). `AT-IT`,
+`IT-AT`, `FR-IT`, `IT-FR` all land in **IT_NORD** and `GR-IT` in **IT_SUD**, but
+EEX lists exactly one Italian root (`FD`) — a national contract. Pricing a
+national forward against a zonal spot is the error capacities measured at up to
+12x on IT-FR. That needs a basis model, not a map entry. GR is a dead end for a
+different reason: its only corridors are GR-BG (no BG history) and GR-IT (IT_SUD).
+
+### What FR/NL bought, and it is the cleanest result in the project
+
+| | n | bid-everything | rule | per auction |
+|---|---|---|---|---|
+| 16 corridors (before) | 386 | +4,420 | +37,671 | +317 |
+| **the 4 FR/NL added** | 96 | **−64,968** | **+11,362** | **+874** |
+| all 20 | 482 | −60,548 | **+49,033** | +371 (t = +1.01) |
+
+Bidding blind on FR/NL loses 64,968. The model **declines 83 of 96** and the 13
+it takes earn +11,362. On `DE-FR` it bought **0 of 24** — correctly, since mean
+realised (1.76) sits below mean clearing (2.49). `FR-DE` is the interesting one:
+mean clearing 31.16, the model's MAE there is 10.14 — its worst — and it still
+picked 6 winners for +10,030. **The value is in the refusal, not the valuation.**
+
+Contrast with the earlier AT-CZ/AT-HU extension, which lost 26,581: extension
+outcome is corridor-specific and unpredictable from the data's availability. Both
+were free to wire; one paid, one did not.
+
 ## Lower vs average vs max of the two fair values
 
 Marginal pricing means the bid level only selects the **win set**, so the three
 combinations are **nested**: `lower ⊆ average ⊆ max`. That makes each relaxation
-testable on the auctions it *adds*. 288 auctions, 16 corridors, 2025-02 → 2026-07:
+testable on the auctions it *adds*. Measured on the 20-corridor book:
+**360 auctions**, 2025-02 → 2026-07.
 
-| rule | buys | n | total EUR | per auction | t | hit% |
-|---|---|---|---|---|---|---|
-| Buy everything | any price | 288 | −83,460 | −290 | −1.73 | 37.2 |
-| MAX of the two | either clears | 204 | −27,971 | −137 | −0.67 | 42.2 |
-| Fundamental alone | its bid clears | 181 | −15,665 | −86 | −0.40 | 42.0 |
-| AVERAGE of the two | the average clears | 163 | +4,063 | +25 | +0.11 | 44.2 |
-| Margrabe alone | its value clears | 101 | +2,316 | +23 | +0.07 | 51.5 |
-| **LOWER of the two** | **both clear** | **78** | **+14,621** | **+187** | **+0.49** | **53.8** |
-| Perfect foresight | the ceiling | 107 | +233,268 | +2,180 | +8.92 | 100 |
+| rule | buys | n | total EUR | per auction | t |
+|---|---|---|---|---|---|
+| Buy everything | any price | 360 | −164,995 | −458 | **−2.47** |
+| MAX of the two | either clears | 237 | −28,356 | −120 | −0.57 |
+| Fundamental alone | its bid clears | 207 | −7,398 | −36 | −0.17 |
+| AVERAGE of the two | the average clears | 179 | +18,695 | +104 | +0.42 |
+| Margrabe alone | its value clears | 113 | +13,473 | +119 | +0.32 |
+| **LOWER of the two** | **both clear** | **83** | **+34,432** | **+415** | **+0.94** |
+| Perfect foresight | the ceiling | 124 | +300,382 | +2,422 | +8.67 |
+
+The monotone ordering survives the bigger book and gets stronger. Note
+bid-everything is now **significantly negative** (t = −2.47), so on this book the
+auction is efficiently-to-over-priced and refusal is where the value lives.
 
 **LOWER dominates on every metric** — total, per-auction, t and hit rate — and the
 nesting says why: every relaxation buys strictly worse auctions.
 
 | the marginal auctions a looser rule admits | n | total | per auction | hit% |
-|---|---|---|---|---|
-| average, beyond lower | 85 | −10,558 | −124 | 35.3 |
-| max, beyond average | 41 | −32,033 | −781 | 34.1 |
+|−−−|−−−|−−−|−−−|−−−|
+| average, beyond lower | 96 | −15,737 | −164 | 34.4 |
+| max, beyond average | 58 | −47,051 | −811 | 34.5 |
 
 So MAX is the worst of the three and only slightly better than bidding blind:
 "either model likes it" is close to "someone had an opinion". AVERAGE lands
@@ -217,10 +272,11 @@ Cheap mechanically, and **not free in expectation**. Measured 2026-08-14:
 
 | tier | corridors | what it needs |
 |---|---|---|
-| wired now | 16 | — |
-| free today | +0 | already done: AT-CZ/CZ-AT/AT-HU/HU-AT cost only a map entry |
-| backtestable now | 24 | ENTSO-E spot for `fr gr it nl`; the workbook already has their monthly forward history |
-| live-priceable now | 44 | all 14 EEX zones are listed; **all 14 confirmed** to return a Month/Base settlement |
+| **wired now** | **20** | — (16 + the four FR/NL below) |
+| done: free, no new data | — | AT-CZ, CZ-AT, AT-HU, HU-AT — map entries only |
+| done: workbook history + one spot pull | — | DE-FR, FR-DE, DE-NL, NL-DE |
+| blocked on basis, not data | 6 | the Italy corridors — one national EEX contract, zonal spot |
+| live-priceable now | 44 | nothing; all 14 EEX zones **confirmed** to return a Month/Base settlement |
 | backtestable from 2026-06-19 | 44 | `data/eex/monthly_forwards.parquet`, the local daily collection |
 
 44 of the 106 monthly-auction corridors (**1,149 openings, 363k MW-months**) are
