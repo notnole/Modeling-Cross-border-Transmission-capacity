@@ -81,7 +81,7 @@ class Capacity(object):
 
     def check_state(self):
         if self._state == 0:
-            raise('Fit capacity first')
+            raise RuntimeError('Fit capacity first')
     
     @abc.abstractmethod
     def asset_type(self):
@@ -185,7 +185,8 @@ class CapacityDict:
 
     def load_fwd_prices(self, path=None):
         if self.__num == 0:
-            raise('Dictionary is empty. Add capacities to dictionary.')
+            raise RuntimeError('Dictionary is empty. Add capacities to '
+                               'dictionary.')
 
         # Get prices
         price_dict = ld.fwd_price_loader()
@@ -206,7 +207,7 @@ class CapacityDict:
 
     def price(self, delivery_):
         if self.__state == 0:
-            raise('Load forward prices to dictionary.')
+            raise RuntimeError('Load forward prices to dictionary.')
 
         # Get capacity price
         border = self.__result_dict['border']
@@ -226,8 +227,8 @@ class CapacityDict:
 
     def sort(self, key='value_mid'):
         if self.__state < 2:
-            raise('Dictionary is not fully loaded. ',
-                  'Add capacities to dictionary.')
+            raise RuntimeError('Dictionary is not fully loaded. '
+                               'Add capacities to dictionary.')
 
         # Sorting values based on key
         if key in self.__result_dict.keys():
@@ -236,7 +237,7 @@ class CapacityDict:
             value = [(v - s) for (v, s) in zip(self.__result_dict['value_mid'],
                                                self.__result_dict['spread'])]
         else:
-            raise('Unknown key value.')
+            raise KeyError('Unknown key value.')
 
         index_array = np.argsort(value)
         self.__result_dict.update((k, [v[i] for i in index_array]) for (k, v)
@@ -245,8 +246,8 @@ class CapacityDict:
 
     def plot(self, data, delivery_, disp=True):
         if self.__state < 2:
-            raise('Dictionary is not fully loaded. ',
-                  'Add capacities to dictionary.')
+            raise RuntimeError('Dictionary is not fully loaded. '
+                               'Add capacities to dictionary.')
 
         # Loop over capacities
         border = self.__result_dict['border']

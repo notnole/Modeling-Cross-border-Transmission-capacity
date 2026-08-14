@@ -37,11 +37,12 @@ class DataBorderClass:
         country = self.dictionary_borders()
         _data = ld.spot_loader(country_list=country,
                                bT=self.start_date,
-                               eT=self.end_date)
+                               eT=self.end_date,
+                               path=path_spot)
         self.data['date'] = _data.index.to_frame()
         for (_border, _border_type) in zip(self.border, self.border_type):
             self.data[_border] = _data.loc[:, self.dictionary_borders([_border])]
-            if _border_type is 'implicit':
+            if _border_type == 'implicit':
                 df_value = (self.data[_border].iloc[:, 1] -
                             self.data[_border].iloc[:, 0])
                 df_value[df_value < 0] = 0
@@ -55,8 +56,7 @@ class DataBorderClass:
         
     def aggregate_data(self, freq, delivery='base', month_i=None, day_i=None):
         if self._state == 0:
-            raise('Data not loaded yet.')
-            return
+            raise RuntimeError('Data not loaded yet.')
         if freq in ['M', 'Q', 'Y']:
             freq += 'S'
 
@@ -107,6 +107,7 @@ class DataBorderClass:
         my_dict['lt'] = 'lt'
         my_dict['lv'] = 'lv'
         my_dict['nl'] = 'nl'
+        my_dict['pl'] = 'pl'
         my_dict['ro'] = 'ro'
         my_dict['si'] = 'si'
         my_dict['sk'] = 'sk'

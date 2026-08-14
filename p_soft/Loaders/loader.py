@@ -8,13 +8,17 @@ Created on Thu Mar  7 21:31:14 2019
 
 import pandas as pd
 import numpy as np
+from pathlib import Path
 from Utilities.delivery_class import Delivery
 #from Database.DB_reader import Database
+
+# repo root, so the defaults below are not machine-specific
+_DATA = Path(__file__).resolve().parents[2] / 'Data'
 
 
 def spot_loader(country_list=None, bT=None, eT=None, path=None):
     if path is None:
-        path = 'C:\Data\spot_price.csv'
+        path = _DATA / 'spot_current.csv'
 
     df = pd.read_csv(path)
     df['date'] = pd.to_datetime(df['date'], format='%Y %m %d %H', utc=False)
@@ -29,9 +33,9 @@ def spot_loader(country_list=None, bT=None, eT=None, path=None):
 
     try:
         df = df.loc[bT:eT, country_list]
-    except:
-        raise('Time format error datetime.date & country must be in list.')
-        return list(df)
+    except Exception as exc:
+        raise KeyError('Time format error datetime.date & country must be in '
+                       f'list; have {list(df)}') from exc
     return df
 
 # def spot_loader(country_list=None, d_range=365,
@@ -78,7 +82,7 @@ def spot_loader(country_list=None, bT=None, eT=None, path=None):
 
 def fwd_price_loader(country=None, date=None, path=None):
     if path is None:
-        path = '/Users/marek/Documents/Excel/Data/fwd_price.csv'
+        path = _DATA / 'fwd_price.csv'
 
     df = pd.read_csv(path)
     df['date'] = pd.to_datetime(df['date'], format='%m/%d/%y', utc=False)
@@ -93,7 +97,7 @@ def fwd_price_loader(country=None, date=None, path=None):
 
 def jao_auction_loader(market=None, date=None, path=None):
     if path is None:
-        path = '/Users/marek/Documents/Excel/Data/jao_auction.csv'
+        path = _DATA / 'jao_auction.csv'
 
     df = pd.read_csv(path)
     df['date'] = pd.to_datetime(df['date'], format='%m/%d/%y', utc=False)

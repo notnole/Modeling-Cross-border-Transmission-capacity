@@ -2,3 +2,6 @@ __pycache__/
 *.pyc
 .idea/
 .vscode/
+# rebuildable from the sources (prep/build_spot.py), 5 MB of prices
+Data/spot_hourly.parquet
+Data/spot_current.csv
