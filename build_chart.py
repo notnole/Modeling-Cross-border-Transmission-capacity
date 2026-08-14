@@ -39,6 +39,10 @@ def _cap_bids() -> Path | None:
 CAP_BIDS = _cap_bids()
 
 
+def _tstat(e: pd.Series) -> float:
+    return float(e.mean() / (e.std(ddof=1) / np.sqrt(len(e)))) if len(e) > 1 else float("nan")
+
+
 def monthly(sub: pd.DataFrame) -> list[dict]:
     rows = []
     for m, g in sub.groupby("delivery_month"):
@@ -161,6 +165,9 @@ def compare(s: pd.DataFrame) -> dict | None:
                                mean=round(e.mean(), 1) if len(e) else None,
                                total=round(e.sum(), 1) if len(e) else 0.0))
 
+    # The comparison window is SHORTER than the rest of the page: the
+    # fundamental book starts 2025-02. Same-named rules therefore carry
+    # different totals in different sections, so ship the reconciliation.
     return dict(strategies=strategies, accuracy=accuracy, monthly=monthly, matrix=matrix,
                 rules=rules, marginal=marg,
                 meta=dict(n=len(j), months=int(j["delivery_month"].nunique()),
@@ -195,8 +202,19 @@ def main() -> None:
             fs=round(g.loc[g["fs"], "pnl_eur"].sum(), 1),
             clearing=round(g["clearing"].mean(), 2)))
 
+    cmp = compare(s)
+    # what the comparison window leaves out, so the two scopes reconcile on the page
+    if cmp:
+        cut = cmp["meta"]["first"]
+        e = s[s["delivery_month"] < cut]
+        cmp["meta"]["excluded"] = dict(
+            n=int(len(e)), first=str(s["delivery_month"].min()), last_before=cut,
+            all_eur=round(e["pnl_eur"].sum(), 1),
+            mdl_eur=round(e.loc[e["won"], "pnl_eur"].sum(), 1),
+            fs_eur=round(e.loc[e["fs"], "pnl_eur"].sum(), 1))
+
     data = dict(
-        full=full, ex_deat=ex, corridors=corr, compare=compare(s),
+        full=full, ex_deat=ex, corridors=corr, compare=cmp,
         meta=dict(n=len(s), months=len(full),
                   corridors=int(s["corridor"].nunique()),
                   zone_pairs=int(s["border"].nunique()),
@@ -204,7 +222,10 @@ def main() -> None:
                   all_total=round(s["pnl_eur"].sum(), 1),
                   mdl_total=round(s.loc[s["won"], "pnl_eur"].sum(), 1),
                   fs_total=round(s.loc[s["fs"], "pnl_eur"].sum(), 1),
-                  mdl_n=int(s["won"].sum()), fs_n=int(s["fs"].sum())))
+                  mdl_n=int(s["won"].sum()), fs_n=int(s["fs"].sum()),
+                  mdl_mwh=round((s.loc[s["won"], "pnl_mwh"]).mean(), 2),
+                  mdl_mwh_t=round(_tstat(s.loc[s["won"], "pnl_mwh"]), 2),
+                  edge_corr=round((s["value"] - s["clearing"]).corr(s["pnl_mwh"]), 3)))
 
     OUT.mkdir(exist_ok=True)
     (OUT / "chart_data.json").write_text(json.dumps(data), encoding="utf-8")
@@ -216,8 +237,21 @@ def main() -> None:
     if "</script" in blob.lower():
         raise SystemExit("JSON contains '</script' and would break out of the script tag")
 
+    page = tpl.replace("__DATA__", blob)
+    # ASCII guard. The published page is body-level content, so it cannot carry
+    # a <meta charset> and a host that serves it as latin-1 renders every
+    # multi-byte character as mojibake. Entities in HTML, \uXXXX in JS. This has
+    # regressed three times; fail the build instead.
+    bad = sorted({hex(ord(c)) for c in page if ord(c) > 127})
+    if bad:
+        lines = [f"  line {i}: {l.strip()[:90]}"
+                 for i, l in enumerate(page.split(chr(10)), 1)
+                 if any(ord(c) > 127 for c in l)]
+        raise SystemExit("non-ASCII in the built page: " + ", ".join(bad) + chr(10)
+                         + chr(10).join(lines[:10]))
+
     out = OUT / "profitability.html"
-    out.write_text(tpl.replace("__DATA__", blob), encoding="utf-8")
+    out.write_text(page, encoding="utf-8")
     print(f"wrote {out} ({out.stat().st_size} bytes)")
     print(f"months {data['meta']['first']} -> {data['meta']['last']}, "
           f"{data['meta']['n']} rights, {data['meta']['corridors']} corridors")

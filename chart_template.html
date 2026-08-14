@@ -135,6 +135,11 @@
     font-size: 17px; font-weight: 600; margin: 0;
     letter-spacing: -0.008em;
   }
+  .win {
+    font-family: var(--mono); font-size: 11px; font-weight: 400;
+    letter-spacing: 0.04em; color: var(--muted); margin-left: 8px;
+    white-space: nowrap;
+  }
   .note { margin: 0; font-size: 13.5px; color: var(--ink-2); max-width: 78ch; }
   h3.sub {
     font-family: var(--mono); font-size: 11px; letter-spacing: 0.11em;
@@ -263,14 +268,18 @@
         without JAO&rsquo;s cap figures &mdash; it would bite hardest on exactly these corridors.</p>
       <p><code>CZ-DE</code> and <code>DE-CZ</code> run no monthly auction under those names, but the
         TSO-split corridors do and price off the same <code>DE_LU</code> zone. An earlier version of this
-        page dropped them; they turned out to be the largest single source of P&amp;L here.</p>
+        page dropped all four. They are not the largest single corridor &mdash; <code>DE-AT</code> is, at
+        +53,860 on buy-everything &mdash; but as a group they are the largest source under the bid rule
+        (+44,675 against DE-AT&rsquo;s +39,834), and dropping them was what made DE-AT look like the whole
+        story.</p>
     </div>
   </div>
 
+  <p class="note" id="kpi-window"></p>
   <div class="kpis" id="kpis"></div>
 
   <section>
-    <h2>Profitability per delivery month</h2>
+    <h2>Profitability per delivery month <span class="win" id="win-1"></span></h2>
     <p class="note">Bars are summed across the corridors offered in that month, so a month where
       the rule buys nothing sits at zero rather than going missing. The ceiling is a bound, not a rival
       strategy &mdash; it is what the same rights were worth to someone who already knew.</p>
@@ -279,7 +288,7 @@
   </section>
 
   <section>
-    <h2>Cumulative, and where it all comes from</h2>
+    <h2>Cumulative, and where it all comes from <span class="win" id="win-2"></span></h2>
     <p class="note">The dashed line is the same rule with <b>both rich border groups removed</b> &mdash;
       DE-AT/AT-DE and the four German-Czech corridors. Those two groups carry the entire result: strip
       them and the rule is a loss, and bidding indiscriminately on either was already profitable
@@ -291,8 +300,10 @@
   </section>
 
   <section>
-    <h2>Per corridor, whole window</h2>
-    <p class="note">Two groups carry everything: <code>DE-AT</code> and the four German-Czech corridors.
+    <h2>Per corridor <span class="win" id="win-3"></span></h2>
+    <p class="note">Two groups carry the result: <code>DE-AT</code> (the largest single corridor) and the
+      four German-Czech ones (the largest group under the rule). The most instructive row is
+      <code>FR-DE</code>: buying it blind loses 25,950, yet the rule takes 6 of 24 and earns +10,030.
       Note <code>DE(50Hz)-CZ</code> and <code>DE(TenneT)-CZ</code> clear within a euro of each other on
       identical prices while one of them is curtailed ~172 h a month &mdash; the auction is not pricing
       that difference. Where the rule loses (<code>CZ-SK</code>, <code>SK-HU</code>) it bought the wrong
@@ -302,7 +313,7 @@
   </section>
 
   <section id="s-cmp" hidden>
-    <h2>Against the fundamental model</h2>
+    <h2>Against the fundamental model <span class="win" id="win-4"></span></h2>
     <p class="note">The sibling <code>capacities</code> project attacks the same auction from the
       opposite direction: per-zone LGBM day-ahead price forecasts off 64 Volue fundamentals curves,
       turned into a predicted spread and bid at its <b>p50</b> with a calibration factor. No forwards,
@@ -310,14 +321,18 @@
       scored here against <b>this</b> project&rsquo;s realised values &mdash; the two agree to
       0.016 EUR/MWh on average anyway, computing the same payoff from independent price pulls.</p>
 
+    <div class="scope" id="scope-window">
+      <span class="k">Different window</span>
+      <div><p id="scope-window-text"></p></div>
+    </div>
+
     <h3 class="sub">How accurate is each value estimate?</h3>
     <p class="note">Rule-independent: just the predicted value against what the right turned out to be
       worth. Shorter is better. The forward spread floored at zero is the do-nothing reference.</p>
     <div class="plot" id="p-acc"></div>
 
     <h3 class="sub">And what does each bid rule earn?</h3>
-    <p class="note">Cumulative, same auctions, same target. Both models clear zero on this set and the
-      forward-vol one clears it by 3x, but the interesting line is <b>both agree</b> &mdash; buy only
+    <p class="note"><span id="cmp-lede"></span> The interesting line is <b>both agree</b> &mdash; buy only
       where the forward-vol model and the fundamental model independently say the right is worth more
       than it cleared. Because JAO is <b>marginal-priced</b>, that is exactly the same thing as
       submitting one order at the lower of the two fair values: <code>min(a,b) &ge; c</code> if and only
@@ -657,15 +672,23 @@ const DATA = __DATA__;
         '<td>' + eur(r.mdl_eur) + "</td><td>" + r.mdl_n + "</td>" +
         "<td>" + (r.mdl_mwh === null ? "\u2014" : (r.mdl_mwh > 0 ? "+" : "\u2212") + Math.abs(r.mdl_mwh).toFixed(2)) + "</td></tr>";
     }
-    const sum = k => D.full.reduce((a, r) => a + r[k], 0);
+    /* totals from meta, which rounds once. Re-summing the rounded monthly cells
+       drifts a euro from the KPI strip and reads as an error. */
     h += "</tbody><tfoot><tr><td>Total</td><td></td>" +
-      '<td>' + eur(sum("fs_eur")) + "</td><td>" + M.fs_n + "</td>" +
-      '<td>' + eur(sum("all_eur")) + "</td><td>" + M.n + "</td>" +
-      '<td>' + eur(sum("mdl_eur")) + "</td><td>" + M.mdl_n + "</td>" +
-      "<td>+0.36</td></tr></tfoot>";
+      "<td>" + eur(M.fs_total) + "</td><td>" + M.fs_n + "</td>" +
+      "<td>" + eur(M.all_total) + "</td><td>" + M.n + "</td>" +
+      "<td>" + eur(M.mdl_total) + "</td><td>" + M.mdl_n + "</td>" +
+      "<td>" + (M.mdl_mwh >= 0 ? "+" : "\u2212") + Math.abs(M.mdl_mwh).toFixed(2) +
+      "</td></tr></tfoot>";
     t.innerHTML = h;
   }
 
+  const win = M.first + " to " + M.last;
+  for (const id of ["win-1", "win-2", "win-3"]) {
+    document.getElementById(id).textContent = win + " \u00b7 " + M.n + " auctions";
+  }
+  document.getElementById("kpi-window").textContent =
+    "Whole book: " + win + ", " + M.n + " cleared auctions across " + M.corridors + " corridors.";
   document.getElementById("n-corr").textContent = M.corridors;
   document.getElementById("n-zp").textContent = M.zone_pairs;
 
@@ -675,9 +698,12 @@ const DATA = __DATA__;
     "<code>plumbing/eex/catalog.md</code>, last close strictly before each gate&rsquo;s day. Auctions: JAO monthly " +
     "results via <code>plumbing.jao_auctions</code>. Sigma is fitted on 12 monthly means per " +
     "<code>capacity_class.capa_fit</code>, unmodified. Reproduce with " +
-    "<code>python run_capacity.py bid --window 12</code>. On the won set the mean is +0.36 EUR/MWh at " +
-    "<b>t = +0.68</b>, and the correlation between the model&rsquo;s edge and realised P&amp;L is " +
-    "<b>&minus;0.010</b> &mdash; treat the total as one border&rsquo;s luck until a longer window says otherwise.";
+    "<code>python run_capacity.py bid --window 12</code>. On the won set the mean is " +
+    ((M.mdl_mwh >= 0 ? "+" : "\u2212") + Math.abs(M.mdl_mwh).toFixed(2)) + " EUR/MWh at <b>t = " +
+    ((M.mdl_mwh_t >= 0 ? "+" : "\u2212") + Math.abs(M.mdl_mwh_t).toFixed(2)) +
+    "</b>, and the correlation between the model&rsquo;s edge and realised P&amp;L is <b>" +
+    ((M.edge_corr >= 0 ? "+" : "\u2212") + Math.abs(M.edge_corr).toFixed(3)) +
+    "</b> &mdash; treat the totals as two border groups&rsquo; luck until a longer window says otherwise.";
 
   /* ---------- comparison against the fundamental model ---------- */
   const C = D.compare;
@@ -824,6 +850,28 @@ const DATA = __DATA__;
     document.getElementById("cmp-scope").textContent =
       C.meta.n + " auctions, " + C.meta.corridors + " corridors, " +
       C.meta.first + " to " + C.meta.last;
+    document.getElementById("win-4").textContent =
+      C.meta.first + " to " + C.meta.last + " \u00b7 " + C.meta.n + " auctions";
+    const rMar = C.rules.find(r => r.name === "Margrabe alone");
+    const rCap = C.rules.find(r => r.name === "Fundamental alone");
+    const sign = v => v > 0 ? "clears zero" : "does not clear zero";
+    document.getElementById("cmp-lede").innerHTML =
+      "Cumulative, same auctions, same target. On this window the Margrabe rule " +
+      sign(rMar.total) + " at <b>" + eur(rMar.total) + "</b> and the fundamental rule " +
+      sign(rCap.total) + " at <b>" + eur(rCap.total) + "</b>.";
+    const x = C.meta.excluded;
+    document.getElementById("scope-window-text").innerHTML =
+      "Every number in this section is on a <b>shorter window</b> than the rest of the page. " +
+      "The fundamental book starts " + C.meta.first + ", so the join drops <b>" + x.n +
+      " auctions</b> from " + x.first + " to the month before " + x.last_before +
+      ". Those months were unusually good: <b>" + eur(x.all_eur) +
+      "</b> on buy-everything and " + eur(x.mdl_eur) + " on the Margrabe rule. " +
+      "So the same rule reads " + eur(C.rules.find(r => r.name === "Margrabe alone").total) +
+      " here against " + eur(M.mdl_total) + " above, and buy-everything reads " +
+      eur(C.rules.find(r => r.name === "Buy everything").total) + " against " + eur(M.all_total) +
+      " \u2014 the difference is entirely the missing months (" +
+      eur(C.rules.find(r => r.name === "Buy everything").total) + " + " + eur(x.all_eur) + " = " +
+      eur(M.all_total) + "), not a different calculation. Read across sections only with that in mind.";
     document.getElementById("cmp-caveat").innerHTML =
       "Read the agreement result with the same discount as everything else on this page: " +
       "<b>t = " + both.t.toFixed(2) + "</b> on " + both.n + " auctions. With DE-AT/AT-DE removed it is still " +
