@@ -62,7 +62,7 @@ def load_joined() -> tuple[pd.DataFrame, str]:
     cap = pd.read_csv(src)
     mar = pd.read_csv(OUT / "bids_w12.csv")
 
-    j = (cap[["corridor", "month", "p50", "bid"]]
+    j = (cap[["corridor", "month", "p50", "bid", "k"]]
          .merge(mar[["corridor", "delivery_month", "value", "clearing", "intrinsic",
                      "realised_value", "realised_hours", "sigma"]],
                 left_on=["corridor", "month"], right_on=["corridor", "delivery_month"])
@@ -80,6 +80,12 @@ def load_joined() -> tuple[pd.DataFrame, str]:
     j["buy_hi"] = j["hi"] >= j["clearing"]
     j["fs"] = j["pnl_mwh"] > 0                             # perfect foresight
     j["rich"] = j["corridor"].isin(RICH)
+    # The fundamental bid is p50 * k. `k` is a median of realised/p50 over the
+    # corridor's own COMPLETED months, so early in the window there is not
+    # enough history and it defaults to exactly 1.0 -- the bid is then the raw,
+    # +1.8-biased p50, which can barely act as a floor. That splits the window
+    # into two regimes and the rule behaves differently in each.
+    j["calibrated"] = j["k"] != 1.0
     return j.sort_values(["delivery_month", "corridor"]).reset_index(drop=True), src.name
 
 
@@ -155,6 +161,20 @@ def main() -> None:
         accuracy.append(dict(name=name, me=round(e.mean(), 2), mae=round(e.abs().mean(), 2),
                              corr=round(j[col].corr(j["realised_value"]), 3)))
 
+    regime = []
+    for name, mask in (("Calibrated (k from history)", j["calibrated"]),
+                       ("Uncalibrated (k = 1, bid = raw p50)", ~j["calibrated"])):
+        g = j[mask]
+        w = g[g["buy_lo"]]
+        regime.append(dict(
+            name=name, months=sorted(g["delivery_month"].astype(str).unique()),
+            first=str(g["delivery_month"].min()), last=str(g["delivery_month"].max()),
+            n=int(len(g)), bought=int(len(w)),
+            total=round(w["pnl_eur"].sum(), 1),
+            mean=round(w["pnl_eur"].mean(), 1) if len(w) else 0.0,
+            t=_t(w["pnl_eur"]),
+            fundBindsPct=round(100 * (g["bid"] <= g["value"]).mean(), 1)))
+
     lo = j[j["buy_lo"]]
     exlo = j[j["buy_lo"] & ~j["rich"]]
     meta = dict(
@@ -181,7 +201,8 @@ def main() -> None:
     )
 
     data = dict(full=full, ex_rich=ex, corridors=corr, rules=rules,
-                marginal=marg, matrix=matrix, accuracy=accuracy, meta=meta)
+                marginal=marg, matrix=matrix, accuracy=accuracy, regime=regime,
+                meta=meta)
 
     OUT.mkdir(exist_ok=True)
     (OUT / "chart_data.json").write_text(json.dumps(data), encoding="utf-8")

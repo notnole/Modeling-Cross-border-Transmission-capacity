@@ -190,7 +190,8 @@
   th i.c-agree { background: var(--s-agree); }
   th i.c-all   { background: var(--s-all); }
   th i.c-ceil  { background: var(--s-ceil); }
-  #rules tbody tr.hi { background: var(--wash); }
+  #rules tbody tr.hi, #regime tbody tr.hi { background: var(--wash); }
+  #regime tbody tr.hi td:first-child { color: var(--ink); font-weight: 600; }
   #rules tbody tr.hi td:first-child { color: var(--ink); font-weight: 600; }
   #rules tfoot td { font-weight: 400; color: var(--ink-2); }
 
@@ -322,7 +323,16 @@
   </section>
 
   <section>
-    <h2>Why neither model alone</h2>
+    <h2>The one split that changes how to read all of this</h2>
+    <p class="note">The fundamental bid is <code>p50 &times; k</code>, where <code>k</code> is a median of
+      <code>realised / p50</code> over that corridor&rsquo;s own <b>completed</b> months. Early in the
+      window there is not enough history, so <code>k</code> defaults to exactly <b>1.0</b> and the bid is
+      the raw <code>p50</code> &mdash; which runs about +1.8 EUR/MWh high and therefore can barely act as
+      a floor. That splits the window in two, and the rule is a different animal in each.</p>
+    <div class="tablewrap"><table id="regime"></table></div>
+    <p class="note" id="regime-note"></p>
+
+    <h2 style="margin-top:18px">Why neither model alone</h2>
     <p class="note">Rule-independent: each estimate against what the right turned out to be worth.
       Shorter is better. Watch the <i>bias</i> column for the lower-of-two &mdash; taking a minimum is
       deliberately conservative, so it understates value by construction. That is a feature for a bidder,
@@ -750,6 +760,38 @@ const DATA = __DATA__;
   }
 
   /* ---------- prose that must never go stale ---------- */
+  function drawRegime() {
+    const t = document.getElementById("regime");
+    let h = "<thead><tr><th>Regime</th><th>Months</th><th>Auctions</th><th>Bought</th>" +
+      "<th>Total EUR</th><th>Per auction</th><th>t</th><th>Fundamental binds</th>" +
+      "</tr></thead><tbody>";
+    for (const r of D.regime) {
+      const hi = r.name.startsWith("Calibrated") ? ' class="hi"' : "";
+      h += "<tr" + hi + "><td>" + r.name + "</td><td>" + r.first + " to " + r.last + "</td><td>" +
+        r.n + "</td><td>" + r.bought + "</td><td>" + eur(r.total) + "</td><td>" + eur(r.mean) +
+        "</td><td>" + (r.t === null ? DASH : sgn2(r.t)) + "</td><td>" +
+        r.fundBindsPct + "%</td></tr>";
+    }
+    t.innerHTML = h + "</tbody>";
+
+    const c = D.regime.find(r => r.name.startsWith("Calibrated"));
+    const u = D.regime.find(r => !r.name.startsWith("Calibrated"));
+    document.getElementById("regime-note").innerHTML =
+      "The whole result lives in the calibrated half: <b>" + eur(c.total) + " over " + c.bought +
+      " fills at t = " + sgn2(c.t) + "</b>, against " + eur(u.total) + " over " + u.bought +
+      " in the uncalibrated half. The mechanism is visible in the last column &mdash; with " +
+      "<code>k = 1</code> the fundamental bid binds only " + u.fundBindsPct + "% of the time, so the " +
+      "rule degenerates towards Margrabe alone and buys " +
+      Math.round(100 * u.bought / u.n) + "% of what is offered; with calibration live it binds " +
+      c.fundBindsPct + "% and the rule turns genuinely two-sided, buying just " +
+      Math.round(100 * c.bought / c.n) + "%. " +
+      "<b>Read this as a hypothesis, not a result.</b> It is " + c.bought + " fills, the split was " +
+      "found after looking at the data, and the calibrated half is also simply the more recent half " +
+      "&mdash; so &ldquo;calibration matters&rdquo; and &ldquo;the market changed&rdquo; are not " +
+      "separable here. What makes it worth stating is that the direction was predictable in advance: " +
+      "an uncalibrated bid biased high cannot function as a floor.";
+  }
+
   function drawNotes() {
     const rich = D.corridors.filter(c => c.rich);
     const richLo = rich.reduce((a, c) => a + c.lo, 0);
@@ -787,8 +829,8 @@ const DATA = __DATA__;
     legend("lg1", BARS.map(s => ({ ...s, sq: true })));
     legend("lg2", LINES.concat([{ name: "Agreement bid, ex rich groups", v: "--s-agree", dash: "4 3" }]));
     legend("lg3", BARS.map(s => ({ ...s, sq: true })));
-    drawKpis(); drawRules(); drawMatrix(); drawMonth(); drawCum(); drawCorr(); drawAcc();
-    drawTable(); drawNotes();
+    drawKpis(); drawRules(); drawMatrix(); drawMonth(); drawCum(); drawCorr();
+    drawRegime(); drawAcc(); drawTable(); drawNotes();
   }
   drawAll();
   let rt;
