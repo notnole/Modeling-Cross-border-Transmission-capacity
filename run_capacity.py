@@ -142,6 +142,8 @@ def realised(spot: pd.DataFrame, border: str, month: pd.Period) -> dict:
     z1, z2 = border.split("_")
     if z1 not in spot or z2 not in spot:
         return {}
+    if month.start_time > spot.index.max() or month.end_time < spot.index.min():
+        return {}                      # delivery has not happened yet
     w = spot.loc[str(month)]
     s = (w[z2] - w[z1]).dropna()
     if len(s) < 24 * 20:
@@ -254,9 +256,133 @@ def cmd_backtest(args) -> None:
     print(f"\n-> {path.relative_to(ROOT)}")
 
 
+# --------------------------------------------------------------------------
+# bid: the actual use case. A JAO monthly auction for delivery month M closes a
+# median 12 days before M starts, so the July right is bid for in mid-June.
+# Everything the model reads must predate `bid_gate_closure` or the backtest is
+# a lie: the forward board is the last close before the gate, and sigma is
+# fitted on the 12 WHOLE months before the gate's own month (a 16-day stub
+# would enter aggregate_data as a full monthly point and bias the fit).
+# --------------------------------------------------------------------------
+def load_auctions() -> pd.DataFrame:
+    a = pd.read_csv(ROOT / "Data" / "jao_monthly.csv",
+                    parse_dates=["bid_gate_closure", "delivery_start", "delivery_stop"])
+    a["delivery_month"] = pd.PeriodIndex(a["delivery_month"], freq="M")
+    a["border"] = a["corridor"].str.lower().str.replace("-", "_", regex=False)
+    return a
+
+
+def price_at_gate(spot, fwd, border, month, gate, window):
+    """Model value of one directed right, using only pre-gate information."""
+    z1, z2 = border.split("_")
+    # gate.normalize(), not gate: trade_date is midnight-stamped but a day's
+    # settlement is not published until that evening, so a same-day close is
+    # lookahead for a gate that closes at midday.
+    pre = fwd[(fwd["trade_date"] < gate.normalize()) & (fwd["delivery_month"] == month)
+              & (fwd["zone"].isin([z1, z2]))]
+    if pre.empty:
+        return None
+    asof = pre["trade_date"].max()
+    board = pre[pre["trade_date"] == asof].set_index("zone")["close"]
+    if z1 not in board.index or z2 not in board.index:
+        return None
+    F1, F2 = float(board[z1]), float(board[z2])
+    if min(F1, F2) <= 0:
+        return None
+
+    start, end = window_bounds(gate.tz_convert(None) if gate.tzinfo else gate, window)
+    caps = fit_sigmas([border], start.to_pydatetime(), end.to_pydatetime())
+    cap, n = caps[border]
+    if cap is None:
+        return None
+    return dict(border=border, delivery_month=str(month), gate=gate,
+                fwd_asof=asof.date(), fit_start=start.date(), fit_end=end.date(),
+                fit_months=n, F_from=F1, F_to=F2, fwd_spread=F2 - F1,
+                intrinsic=max(F2 - F1, 0.0),
+                sigma=cap.delivery["base"]["sig_mid"],
+                value=cap.capa_price_mid(F1, F2, "base"),
+                delta_to=cap.capa_delta(F1, F2, "base")[1])
+
+
+def cmd_bid(args) -> None:
+    spot = install_cached_spot_loader()
+    fwd = load_forwards()
+    auc = load_auctions()
+
+    rows = []
+    for _, a in auc.iterrows():
+        r = price_at_gate(spot, fwd, a["border"], a["delivery_month"],
+                          a["bid_gate_closure"], args.window)
+        if r is None:
+            continue
+        r.update(clearing=a["auction_price_eur_mwh"], atc_mw=a["atc_mw"],
+                 allocated_mw=a["allocated_mw"], bidders=a["bidder_party_count"],
+                 maint_hours=a["maintenance_hours"])
+        r.update(realised(spot, a["border"], a["delivery_month"]))
+        rows.append(r)
+    bids = pd.DataFrame(rows)
+    bids["time_value"] = bids["value"] - bids["intrinsic"]
+    OUT.mkdir(exist_ok=True)
+    bids.to_csv(OUT / f"bids_w{args.window}.csv", index=False)
+
+    # ---- the requested month, as an order table ----------------------------
+    month = args.delivery or str(bids.loc[bids["clearing"].notna(), "delivery_month"].max())
+    d = bids[bids["delivery_month"] == month].copy()
+    if d.empty:
+        raise SystemExit(f"no auctions priced for {month}; "
+                         f"have {sorted(bids['delivery_month'].unique())}")
+    d["bid"] = (d["value"] - args.margin).clip(lower=0).round(2)
+    d["won"] = d["bid"] >= d["clearing"]
+    print(f"=== delivery {month} — bid at the gate, margin {args.margin:.2f} EUR/MWh\n")
+    cols = ["border", "gate", "fwd_asof", "F_from", "F_to", "value", "bid",
+            "clearing", "won", "realised_value", "atc_mw", "sigma"]
+    show = d[cols].copy()
+    show["gate"] = show["gate"].dt.strftime("%Y-%m-%d %H:%M")
+    for c in ("F_from", "F_to", "value", "clearing", "realised_value"):
+        show[c] = show[c].round(2)
+    show["sigma"] = show["sigma"].round(4)
+    print(show.to_string(index=False))
+    if d["realised_value"].notna().any():
+        w = d[d["won"] & d["realised_value"].notna()]
+        print(f"\nwon {len(w)} of {d['clearing'].notna().sum()}; "
+              f"P&L on the won set {(w['realised_value'] - w['clearing']).sum():+.2f} "
+              f"EUR/MWh summed, {(w['realised_value'] - w['clearing']).mean():+.2f} mean")
+
+    # ---- does the rule make money? -----------------------------------------
+    s = bids.dropna(subset=["clearing", "realised_value"]).copy()
+    print(f"\n=== bid rule over {len(s)} cleared auctions "
+          f"({s['delivery_month'].min()} -> {s['delivery_month'].max()}, "
+          f"{s['border'].nunique()} corridors)")
+    print("assumes we are a price taker: our bid never moves the clearing price.\n")
+    print(f"{'margin':>7} {'win%':>6} {'n_won':>6} {'mean cost':>10} "
+          f"{'mean value':>11} {'mean P&L':>9} {'total P&L':>10} {'hit%':>6}")
+    for m in args.grid:
+        bid = (s["value"] - m).clip(lower=0)
+        won = s[bid >= s["clearing"]]
+        if won.empty:
+            print(f"{m:7.2f} {0.0:6.1f} {0:6d}")
+            continue
+        pnl = won["realised_value"] - won["clearing"]
+        print(f"{m:7.2f} {100 * len(won) / len(s):6.1f} {len(won):6d} "
+              f"{won['clearing'].mean():10.2f} {won['realised_value'].mean():11.2f} "
+              f"{pnl.mean():9.2f} {pnl.sum():10.1f} {100 * (pnl > 0).mean():6.1f}")
+    base = s["realised_value"] - s["clearing"]
+    print(f"\nbid-everything benchmark: mean P&L {base.mean():+.2f}, "
+          f"total {base.sum():+.1f}, hit {100 * (base > 0).mean():.1f}% over {len(s)}")
+    print(f"-> {(OUT / f'bids_w{args.window}.csv').relative_to(ROOT)}")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="mode", required=True)
+    d = sub.add_parser("bid")
+    d.add_argument("--window", type=int, default=12)
+    d.add_argument("--delivery", default=None, help="delivery month YYYY-MM")
+    d.add_argument("--margin", type=float, default=0.0,
+                   help="EUR/MWh subtracted from model value to form the bid")
+    d.add_argument("--grid", type=float, nargs="*",
+                   default=[-2, -1, 0, 0.5, 1, 2, 3, 5])
+    d.set_defaults(func=cmd_bid)
     p = sub.add_parser("predict")
     p.add_argument("--window", type=int, default=12)
     p.add_argument("--asof", default=None)

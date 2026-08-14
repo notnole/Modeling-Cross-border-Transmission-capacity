@@ -124,6 +124,60 @@ Live board (`predict`, board 2026-08-06, 12-month window): sigma 0.056 SK-HU /
 0.069 SK-CZ / 0.083 CZ-DE / 0.121 AT-DE, time value 0.1–2.1 EUR/MWh.
 `outputs/prediction_2026-08-06_w12.csv`, `outputs/backtest_w12.csv`.
 
+## The bid use case — `run_capacity.py bid`
+
+The intended use: a JAO **monthly** auction for delivery month M closes a median
+**12 days before M starts**, so the July right is bid for in mid-June. `bid`
+prices every auction as of its own `bid_gate_closure`, using only information
+that predated the gate:
+
+- forward board = last close **strictly before the gate's day**. Not before the
+  gate *instant*: `trade_date` is midnight-stamped but a settlement is not
+  published until that evening, so a same-day close is lookahead for a midday
+  gate.
+- sigma = the 12 **whole** months before the gate's own month. A part-month stub
+  would enter `aggregate_data` as a full monthly point.
+
+Auctions come from `Data/jao_monthly.csv` (`prep/build_auctions.py`, sourced
+from `projects/capacities/data/auctions_monthly.parquet`). **8 of the 10
+priceable borders are biddable**: `CZ-DE` / `DE-CZ` run no monthly auctions at
+all (`plumbing/jao_auctions/catalog.md`).
+
+### It is not a usable bidding rule yet
+
+Over **192 cleared auctions**, 8 corridors, 2024-08 → 2026-07, bidding
+`model value` and paying the clearing price when we win:
+
+| | n | mean P&L | total |
+|---|---|---|---|
+| bid everything (accept any price) | 192 | −0.03 | −5.5 |
+| bid = model value | 77 | **+0.36** | +27.9 |
+| — excluding DE-AT / AT-DE | 56 | **−0.47** | −26.4 |
+| — DE-AT / AT-DE only | 21 | +2.59 | +54.3 |
+
+EUR/MWh per delivered hour. The apparent edge is **one border pair**. Strip
+DE-AT/AT-DE and the rule returns −0.472 per auction against −0.477 for
+indiscriminate bidding — statistically the same number, reached by trading 39%
+as often. And DE-AT is not a model result: bidding *everything* on DE-AT earned
++3.01 per auction over this window because the auction persistently underpriced
+it; the model got +3.87, an improvement on an edge that was already there.
+
+Supporting evidence that the signal is weak: **t = +0.68** on the won set
+(+0.75 clustered by delivery month), and **corr(model edge, realised P&L) =
+−0.010**. Margin sweep peaks around 0.0–0.5 EUR/MWh and goes negative past 1.0,
+but on 29 or fewer auctions.
+
+The one thing that does work: sizing. On the borders where the model refuses to
+pay up it is usually right to refuse (`skipped_mean` < `rule_mean` on 6 of 8
+corridors) — it is the *level* of the fair value, not the *ranking*, that is
+unreliable.
+
+Caveats that bound all of the above: it assumes we are a **price taker** (our
+bid never moves the clearing price — plausible at small MW against
+30-plus-bidder books, unverified), it ignores `maintenance_hours` (the ATC
+derating the `capacities` project models), and 24 delivery months on 8 corridors
+is a small sample with P&L correlated across corridors within a month.
+
 ## Fixed in `p_soft/` (2026-08-14)
 
 Minimum set to make the model run on current data. **No model logic changed** —
