@@ -9,3 +9,6 @@ Data/jao_monthly.csv
 Data/jao_monthly_provenance.txt
 outputs/chart_data.json
 outputs/profitability.html
+Data/bids_2*.csv
+Data/fund_next_auction_*.csv
+Data/fwd_all.csv

@@ -383,7 +383,10 @@ def cmd_bid(args) -> None:
 # replays cleared auctions from CSV, this pulls the live board and the live
 # auction envelope, so it is the thing you actually act on before a gate.
 # --------------------------------------------------------------------------
-EEX_ZONE = {"sk": "SK", "cz": "CZ", "hu": "HU", "at": "AT", "de": "DE", "ro": "RO"}
+# our zone code -> plumbing.eex area key. UPPERCASE: eex.short_code rejects
+# lowercase with a KeyError listing the valid roots.
+EEX_ZONE = {"sk": "SK", "cz": "CZ", "hu": "HU", "at": "AT", "de": "DE", "ro": "RO",
+            "fr": "FR", "nl": "NL", "gr": "GR", "it": "IT", "pl": "PL"}
 
 
 def live_board(zones: list[str], year: int, month: int) -> pd.DataFrame:
@@ -530,9 +533,12 @@ def recent_clearing(corridor: str) -> dict:
 
 def fundamental_view(month: str) -> dict:
     """The sibling fundamental model's p50 / bid for this delivery month."""
-    src = ROOT.parent / "capacities" / "price_model" / "outputs" / "bids_20260803.csv"
+    local = sorted((ROOT / "Data").glob("bids_2*.csv"))
+    src = local[-1] if local else (
+        ROOT.parent / "capacities" / "price_model" / "outputs" / "bids_20260803.csv")
     if not src.exists():
         return {}
+    print(f"fundamental view: {src.name}")
     d = pd.read_csv(src)
     d = d[d["month"] == month]
     return {r["corridor"]: dict(p50=r["p50"], bid=r["bid"])

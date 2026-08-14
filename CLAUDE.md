@@ -178,6 +178,65 @@ bid never moves the clearing price — plausible at small MW against
 derating the `capacities` project models), and 24 delivery months on 8 corridors
 is a small sample with P&L correlated across corridors within a month.
 
+## The fundamental model, re-run same-vintage (2026-08-14)
+
+The head-to-head no longer compares a fresh model to a stale one. `capacities`
+was re-run on the box against the 2026-08-13 board; the output is pulled into
+`Data/bids_20260814.csv` (780 rows, 41 corridors, 2025-02 → 2026-09, **one
+vintage**), and `build_chart.py::_cap_bids()` / `fundamental_view()` both prefer
+the freshest local `Data/bids_2*.csv` over the sibling's committed Aug-3 file.
+
+**The forward block is confirmed fresh** — its SK-HU `fwd` reads 9.52, matching my
+own 2026-08-13 EEX pull exactly, against 15.33 on the old vintage.
+
+What moved, and what did not:
+
+- `fwd`: the point of the exercise. SK-HU 15.33 → **9.52**, CZ-SK −3.87,
+  HU-RO/RO-HU ±3.50, DE-AT/AT-DE ±2.52.
+- `p50`: ±0.3–1.8 from 14 extra days of Volue realized + forecast. No method change.
+- `k`: **frozen** — 10 of 12 unchanged to 3 dp, because the calibration history is
+  still the same 18 complete months. Only the 50Hz legs moved.
+- **Ranks, tiers and eligibility are identical for all 12.** The participation
+  decision did not change; only the levels and the market context did.
+
+Accuracy on the same-vintage join (360 auctions, 20 corridors): Margrabe MAE
+**2.82** / bias +0.11 / corr 0.824, against the fundamental bid's 3.81 / +1.32 /
+0.738. The forwards-only model stays the more accurate of the two, and the
+lower/average/max ordering is unchanged — so none of the earlier conclusions
+depended on the vintage mismatch.
+
+**A trading consequence worth naming: SK-HU has flipped sides against the
+market.** On the old vintage the forward spread (15.33) sat *above* the
+fundamental bid (10.90). Now the bid (12.45) sits *above* the forward (9.52).
+Same on CZ-SK. Both are `mark` rows — settlements derived off DE rather than that
+border's own book — so per `plumbing/eex/catalog.md` they must not be read as a
+market view of the SK/HU/CZ border.
+
+Two operational traps the box run recorded, worth keeping:
+
+1. **`PYTHONPATH` must point at the tree root.** Scripts run as
+   `python price_model/x.py`, so `sys.path[0]` is the script dir and
+   `import plumbing` falls through to the editable install → the *stale* box
+   `~/Work/Coders-Workspace/plumbing`, which has no `eex` and no
+   `jao_auctions/maintenance.py`. It fails loudly today; a partial overlap would
+   fail silently.
+2. **Never refresh the panel with `--refresh-panel`.** The parent fingerprints
+   its fresh panel into `manifest.json`, but workers are initialised with
+   `use_cache=True` and read `features_hourly.parquet` from disk, which that flag
+   does not write. Workers would compute from the stale panel while the manifest
+   vouched for the fresh one, and `check_manifest` cannot catch it because
+   workers get the parent's fingerprint. Warm the on-disk cache first, then run
+   without the flag.
+
+Scope note for reproducibility: the box ran the **full** 42-corridor × 20-month
+sweep, not a 2026-09-only run, because `k` is a median over the corridor's own
+completed months and `run_all_corridors.py` documents that pre-2026-08-03
+residual draws came from an unreproducible `hash()` seed — splicing would mix two
+random draws. Not refreshed: `normals_hourly.parquet`, `maintenance.parquet`
+(neither is a sweep input), and JAO history before 2026-08 keeps its Aug-4 pull.
+No `--dump-samples`, so `bidding_record.html` / `spread_record.html` on the box
+are still the Aug-5 vintage and now disagree with the book.
+
 ## The workbook's monthly history is ample — a correction
 
 An earlier version of this file said "the binding constraint is forward history".

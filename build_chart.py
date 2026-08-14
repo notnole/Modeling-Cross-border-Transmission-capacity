@@ -26,7 +26,17 @@ OUT = HERE / "outputs"
 RICH_BORDERS = ["de_at", "at_de", "de_cz", "cz_de"]
 # the fundamental model's own bid book, for the head-to-head. Its `bid` is the
 # LGBM predicted-value p50 times a calibration factor k.
-CAP_BIDS = HERE.parent / "capacities" / "price_model" / "outputs" / "bids_20260803.csv"
+def _cap_bids() -> Path | None:
+    """Freshest fundamental bid book. Prefer a local same-vintage copy (pulled
+    from the box run) over the sibling project's older committed one."""
+    local = sorted((HERE / "Data").glob("bids_2*.csv"))
+    if local:
+        return local[-1]
+    sib = HERE.parent / "capacities" / "price_model" / "outputs" / "bids_20260803.csv"
+    return sib if sib.exists() else None
+
+
+CAP_BIDS = _cap_bids()
 
 
 def monthly(sub: pd.DataFrame) -> list[dict]:
@@ -54,7 +64,7 @@ def compare(s: pd.DataFrame) -> dict | None:
     (its price file has NaN hours there, which its dropna() removes), and DST
     months differ by the one repeated CET hour its window counts.
     """
-    if not CAP_BIDS.exists():
+    if CAP_BIDS is None or not CAP_BIDS.exists():
         print(f"skip comparison: {CAP_BIDS} not found")
         return None
     cap = pd.read_csv(CAP_BIDS)
